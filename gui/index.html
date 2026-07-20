@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KeyboardForge -- Visual Layout Editor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+
+  <header class="toolbar">
+    <h1>KeyboardForge</h1>
+
+    <div class="toolbar-group">
+      <button id="btn-new">New Layout</button>
+      <label class="file-btn">
+        Load JSON
+        <input type="file" id="file-load" accept="application/json">
+      </label>
+      <button id="btn-save">Save JSON</button>
+      <button id="btn-undo" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+      <button id="btn-redo" title="Redo (Ctrl+Y)">&#8631; Redo</button>
+    </div>
+
+    <div class="toolbar-group">
+      <label>Level:
+        <select id="level-select">
+          <option value="0">Level 1 (base)</option>
+          <option value="1">Level 2 (Shift)</option>
+          <option value="2">Level 3 (AltGr)</option>
+          <option value="3">Level 4 (Shift+AltGr)</option>
+        </select>
+      </label>
+      <input type="search" id="search-box" placeholder="Search keys or symbols...">
+      <label>Zoom:
+        <input type="range" id="zoom" min="60" max="150" value="100">
+      </label>
+      <button id="btn-theme">Toggle Theme</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="keyboard-panel">
+      <div id="layout-meta" class="layout-meta"></div>
+      <div id="keyboard" class="keyboard"></div>
+      <div id="symbol-palette" class="symbol-palette"></div>
+      <p class="hint">Click a key to edit it. Drag a symbol from the palette onto a key to
+         set the currently selected level. Use the Level selector above to choose which
+         shift level the keycaps are displaying. Keys show the actual character they
+         produce; a dashed border marks a dead key (it modifies the <em>next</em>
+         keystroke rather than producing a character by itself). Hover a key to see its
+         technical keycode and symbol name.</p>
+    </section>
+
+    <aside class="property-editor" id="property-editor">
+      <h2>Key Editor</h2>
+      <p class="placeholder">Select a key on the keyboard to edit it.</p>
+    </aside>
+  </main>
+
+  <footer class="status-bar">
+    <span id="status-text">No layout loaded. Click "New Layout" or "Load JSON" to begin.</span>
+    <span class="export-hint">
+      This GUI edits the layout's JSON model only. To generate XKB files and install on
+      Linux, save the JSON here, then run:
+      <code>keyboardforge export &lt;file.json&gt; &lt;dir&gt;</code> or
+      <code>keyboardforge install &lt;file.json&gt;</code> from the CLI.
+    </span>
+  </footer>
+
+<script src="logic.js"></script>
+<script src="keysyms.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

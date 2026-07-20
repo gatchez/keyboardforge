@@ -47,7 +47,7 @@ if [[ -f "gui/index.html" ]]; then
         grep -q '<html' gui/index.html
     "
     if command -v node >/dev/null 2>&1; then
-        run_suite "GUI logic tests (node --test)" bash -c "cd gui && node --test test_logic.js"
+        run_suite "GUI logic + keysym tests (node --test)" bash -c "cd gui && node --test test_logic.js test_keysyms.js"
         if [[ -d "gui/node_modules/jsdom" ]]; then
             run_suite "GUI headless DOM smoke test (jsdom)" bash -c "cd gui && node smoke_test.js"
         else

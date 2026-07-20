@@ -1,0 +1,12 @@
+{
+  "name": "keyboardforge-gui",
+  "version": "0.1.0",
+  "description": "KeyboardForge static, dependency-free visual layout editor. jsdom is a dev-only dependency used solely by smoke_test.js; the GUI itself (index.html/app.js/logic.js/style.css) has zero dependencies and needs no build step.",
+  "private": true,
+  "scripts": {
+    "test": "node --test test_logic.js test_keysyms.js && node smoke_test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

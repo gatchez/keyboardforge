@@ -11,4 +11,3 @@ core/*.egg-info/
 cli/dist/
 cli/build/
 cli/*.egg-info/
-.idea

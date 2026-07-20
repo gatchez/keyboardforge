@@ -1,0 +1,29 @@
+# Maintainer: gatchez
+pkgname=keyboardforge-linux
+pkgver=1.2.0
+pkgrel=1
+pkgdesc="KeyboardForge -- Linux keyboard layout installer (Debian, Fedora, Arch)"
+arch=('any')
+url="https://github.com/gatchez/keyboardforge"
+license=('MIT')
+depends=('xkeyboard-config' 'libxml2')
+source=()
+sha256sums=()
+
+# This PKGBUILD is a packaging template, matching the deb/ and rpm/
+# templates already in this project. It documents Arch dependencies and
+# metadata. To turn this into a real installable pacman package, populate
+# package() below to stage the linux/ installer directory into "$pkgdir",
+# e.g.:
+#
+# package() {
+#     install -Dm755 install.sh "$pkgdir/usr/share/keyboardforge/install.sh"
+#     install -Dm755 uninstall.sh "$pkgdir/usr/share/keyboardforge/uninstall.sh"
+#     install -Dm644 fr_custom "$pkgdir/usr/share/keyboardforge/fr_custom"
+#     install -Dm644 rules "$pkgdir/usr/share/keyboardforge/rules"
+#     install -Dm644 VERSION "$pkgdir/usr/share/keyboardforge/VERSION"
+#     cp -r modules "$pkgdir/usr/share/keyboardforge/modules"
+# }
+package() {
+    echo "Template package() -- see comments above for staging instructions."
+}

@@ -1,0 +1,9 @@
+Package: keyboardforge-linux
+Version: 1.2.0
+Architecture: all
+Maintainer: gatchez
+Description: KeyboardForge -- Linux keyboard layout installer.
+ Modular, cross-platform (Debian, Fedora, Arch) installer for KeyboardForge
+ keyboard layouts, with automatic Desktop Environment configuration
+ (GNOME, KDE Plasma, XFCE) and Wayland/X11 detection.
+Depends: xkb-data, libxml2-utils

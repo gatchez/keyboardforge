@@ -39,7 +39,7 @@ done
 
 # Initialize a fresh log with a session header
 echo "--- SESSION START: $(date) ---" > "$LOG_FILE"
-echo -e "============================================================\n KeyboardForge Installer v$VERSION\n============================================================"
+echo -e "============================================================\n FR_CUSTOM Installer v$VERSION\n============================================================"
 
 if [[ $EUID -ne 0 ]]; then
     log_error "This script requires root privileges. Run: sudo ./install.sh"

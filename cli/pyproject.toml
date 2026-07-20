@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keyboardforge-cli"
+version = "0.1.0"
+description = "KeyboardForge command-line interface"
+authors = [{ name = "gatchez" }]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = ["keyboardforge-core"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+keyboardforge = "keyboardforge_cli.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["keyboardforge_cli*"]

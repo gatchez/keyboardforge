@@ -1,0 +1,363 @@
+{
+  "xkb_name": "fr_custom",
+  "variant": "custom",
+  "description": "French (Custom — digits on top, US-style Shift, AltGr for 3rd level)",
+  "language": "fra",
+  "base_layout": null,
+  "includes": [
+    "level3(ralt_switch)"
+  ],
+  "author": "gatchez",
+  "version": "1.2.0",
+  "keys": [
+    {
+      "keycode": "TLDE",
+      "levels": [
+        "0x10000b2"
+      ],
+      "comment": "²"
+    },
+    {
+      "keycode": "AE01",
+      "levels": [
+        "1",
+        "ampersand"
+      ]
+    },
+    {
+      "keycode": "AE02",
+      "levels": [
+        "2",
+        "eacute",
+        "asciitilde"
+      ]
+    },
+    {
+      "keycode": "AE03",
+      "levels": [
+        "3",
+        "quotedbl",
+        "numbersign"
+      ]
+    },
+    {
+      "keycode": "AE04",
+      "levels": [
+        "4",
+        "apostrophe",
+        "braceleft"
+      ]
+    },
+    {
+      "keycode": "AE05",
+      "levels": [
+        "5",
+        "parenleft",
+        "bracketleft"
+      ]
+    },
+    {
+      "keycode": "AE06",
+      "levels": [
+        "6",
+        "minus",
+        "bar"
+      ]
+    },
+    {
+      "keycode": "AE07",
+      "levels": [
+        "7",
+        "egrave",
+        "grave"
+      ]
+    },
+    {
+      "keycode": "AE08",
+      "levels": [
+        "8",
+        "underscore",
+        "backslash"
+      ]
+    },
+    {
+      "keycode": "AE09",
+      "levels": [
+        "9",
+        "ccedilla",
+        "asciicircum"
+      ]
+    },
+    {
+      "keycode": "AE10",
+      "levels": [
+        "0",
+        "agrave",
+        "at"
+      ]
+    },
+    {
+      "keycode": "AE11",
+      "levels": [
+        "degree",
+        "parenright",
+        "bracketright"
+      ]
+    },
+    {
+      "keycode": "AE12",
+      "levels": [
+        "plus",
+        "equal",
+        "braceright"
+      ]
+    },
+    {
+      "keycode": "AD01",
+      "levels": [
+        "q",
+        "Q"
+      ]
+    },
+    {
+      "keycode": "AD02",
+      "levels": [
+        "w",
+        "W"
+      ]
+    },
+    {
+      "keycode": "AD03",
+      "levels": [
+        "e",
+        "E"
+      ]
+    },
+    {
+      "keycode": "AD04",
+      "levels": [
+        "r",
+        "R"
+      ]
+    },
+    {
+      "keycode": "AD05",
+      "levels": [
+        "t",
+        "T"
+      ]
+    },
+    {
+      "keycode": "AD06",
+      "levels": [
+        "y",
+        "Y"
+      ]
+    },
+    {
+      "keycode": "AD07",
+      "levels": [
+        "u",
+        "U"
+      ]
+    },
+    {
+      "keycode": "AD08",
+      "levels": [
+        "i",
+        "I"
+      ]
+    },
+    {
+      "keycode": "AD09",
+      "levels": [
+        "o",
+        "O"
+      ]
+    },
+    {
+      "keycode": "AD10",
+      "levels": [
+        "p",
+        "P"
+      ]
+    },
+    {
+      "keycode": "AD11",
+      "levels": [
+        "dead_diaeresis",
+        "dead_circumflex"
+      ],
+      "comment": "¨ ^"
+    },
+    {
+      "keycode": "AD12",
+      "levels": [
+        "sterling",
+        "dollar"
+      ],
+      "comment": "£ $"
+    },
+    {
+      "keycode": "AC01",
+      "levels": [
+        "a",
+        "A"
+      ]
+    },
+    {
+      "keycode": "AC02",
+      "levels": [
+        "s",
+        "S"
+      ]
+    },
+    {
+      "keycode": "AC03",
+      "levels": [
+        "d",
+        "D"
+      ]
+    },
+    {
+      "keycode": "AC04",
+      "levels": [
+        "f",
+        "F"
+      ]
+    },
+    {
+      "keycode": "AC05",
+      "levels": [
+        "g",
+        "G"
+      ]
+    },
+    {
+      "keycode": "AC06",
+      "levels": [
+        "h",
+        "H"
+      ]
+    },
+    {
+      "keycode": "AC07",
+      "levels": [
+        "j",
+        "J"
+      ]
+    },
+    {
+      "keycode": "AC08",
+      "levels": [
+        "k",
+        "K"
+      ]
+    },
+    {
+      "keycode": "AC09",
+      "levels": [
+        "l",
+        "L"
+      ]
+    },
+    {
+      "keycode": "AC10",
+      "levels": [
+        "question",
+        "comma"
+      ]
+    },
+    {
+      "keycode": "AC11",
+      "levels": [
+        "percent",
+        "ugrave"
+      ]
+    },
+    {
+      "keycode": "BKSL",
+      "levels": [
+        "mu",
+        "asterisk"
+      ]
+    },
+    {
+      "keycode": "LSGT",
+      "levels": [
+        "greater",
+        "less"
+      ]
+    },
+    {
+      "keycode": "AB01",
+      "levels": [
+        "z",
+        "Z"
+      ]
+    },
+    {
+      "keycode": "AB02",
+      "levels": [
+        "x",
+        "X"
+      ]
+    },
+    {
+      "keycode": "AB03",
+      "levels": [
+        "c",
+        "C"
+      ]
+    },
+    {
+      "keycode": "AB04",
+      "levels": [
+        "v",
+        "V"
+      ]
+    },
+    {
+      "keycode": "AB05",
+      "levels": [
+        "b",
+        "B"
+      ]
+    },
+    {
+      "keycode": "AB06",
+      "levels": [
+        "n",
+        "N"
+      ]
+    },
+    {
+      "keycode": "AB07",
+      "levels": [
+        "m",
+        "M"
+      ]
+    },
+    {
+      "keycode": "AB08",
+      "levels": [
+        "period",
+        "semicolon"
+      ]
+    },
+    {
+      "keycode": "AB09",
+      "levels": [
+        "slash",
+        "colon"
+      ]
+    },
+    {
+      "keycode": "AB10",
+      "levels": [
+        "section",
+        "exclam"
+      ]
+    }
+  ]
+}

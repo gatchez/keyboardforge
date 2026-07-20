@@ -1,0 +1,119 @@
+=====================================================================
+FR_CUSTOM KEYBOARD LAYOUT — INSTALLATION INSTRUCTIONS (v1.2.0)
+=====================================================================
+Author: gatchez
+Part of: KeyboardForge (see ../README.md for the full project)
+
+NOTE: `fr_custom` and `rules` in this directory are GENERATED files. Their
+source of truth is ../layouts/fr_custom.json. To modify this layout, edit
+that JSON file (or use the KeyboardForge CLI/GUI) and regenerate with:
+
+    python3 ../tools/generate_layout.py ../layouts/fr_custom.json .
+
+Do not hand-edit `fr_custom` or `rules` directly -- those edits will be
+lost the next time the layout is regenerated.
+
+This folder contains the complete framework to install the French Custom
+keyboard layout system-wide across supported Linux distributions.
+
+FILES INCLUDED:
+----------------
+1. fr_custom & rules
+   - Layout definition (XKB symbols) and XML injection rules.
+2. install.sh & uninstall.sh
+   - The main entry points. Execute these to manage the layout.
+3. modules/
+   - Contains the core engine (common.sh), OS configurations
+     (debian.sh, fedora.sh, arch.sh), and Desktop Environment setups
+     (gnome.sh, kde.sh, xfce.sh).
+4. test.sh
+   - CI/CD validation script (bash syntax + XML integrity + file checks).
+5. VERSION
+   - Centralized version tracking.
+6. packaging/
+   - Templates for .deb (deb/control), .rpm (rpm/fr_custom.spec), and
+     Arch (pkgbuild/PKGBUILD) packaging.
+
+=====================================================================
+BEFORE YOU BEGIN
+=====================================================================
+1. Ensure you are executing commands from inside this folder.
+2. Root privileges (sudo) are strictly required.
+3. Supported Systems:
+   - Debian-based   (Ubuntu, Kali, Mint, Pop!_OS, etc.)
+   - Fedora-based
+   - Arch Linux      (Arch, EndeavourOS, Manjaro, and other Arch derivatives
+                       that ship /etc/arch-release and pacman)
+
+=====================================================================
+STEP 1 — MAKE SCRIPTS EXECUTABLE
+=====================================================================
+Open a terminal in this directory and run:
+    chmod +x install.sh uninstall.sh test.sh modules/*.sh
+
+=====================================================================
+STEP 2 — RUN THE INSTALLER
+=====================================================================
+To install interactively, run:
+    sudo ./install.sh
+
+The script will ask for confirmation before modifying system files.
+
+ADVANCED FLAGS:
+  --yes, -y     (Silent mode, bypasses the confirmation prompt)
+  --dry-run     (Simulate installation without saving any changes)
+
+Example: sudo ./install.sh --yes
+
+What the script automates:
+ 1. Backs up system files (`evdev.xml`, and the distro-specific keyboard
+    config: `/etc/default/keyboard` on Debian, or localectl state on
+    Fedora/Arch).
+ 2. Validates XML structure (using `xmllint`) and injects layout rules.
+ 3. Copies `fr_custom` to `/usr/share/X11/xkb/symbols/`.
+ 4. Installs missing dependencies automatically (libxml2-utils / libxml2 /
+    pacman's libxml2 + xkeyboard-config, depending on distro).
+ 5. Configures system defaults:
+      - Debian: `XKBLAYOUT="fr_custom"`, `XKBVARIANT="custom"`
+      - Fedora/Arch: `localectl set-x11-keymap fr_custom pc105 custom`
+ 6. Rebuilds system caches safely where relevant (initramfs / dracut /
+    mkinitcpio -P).
+ 7. Detects Wayland vs X11 and configures your Desktop Environment
+    (GNOME, KDE, or XFCE) automatically.
+
+=====================================================================
+STEP 3 — REBOOT
+=====================================================================
+Once you see "[✔] Installation Complete", run:
+    sudo reboot
+
+=====================================================================
+UNINSTALL / RESTORE
+=====================================================================
+If you need to revert the system to its previous state:
+    sudo ./uninstall.sh
+    sudo reboot
+
+This safely restores files from their `.bak_fr_custom` backups, resets
+Fedora/Arch to the `us` layout via localectl, and cleans up the XKB
+directories.
+
+=====================================================================
+TROUBLESHOOTING & NOTES
+=====================================================================
+- Wayland Users: The installer natively handles Wayland by using
+  DE-specific d-bus/gsettings/kwriteconfig commands instead of
+  `setxkbmap`. If your layout does not appear, go to your Desktop
+  Settings -> Keyboard and add "French (customized by gatchez)" manually.
+- Arch Linux: The console (TTY) keymap is left untouched; only the X11
+  layout is configured, since custom XKB layouts are an X11/Wayland
+  concept, not a Linux console concept.
+- Check `logs/install.log` if any errors occur during installation
+  (entries are timestamped).
+- Run `./test.sh` any time to verify script syntax and file integrity.
+
+=====================================================================
+VERIFICATION COMMANDS
+=====================================================================
+X11:  setxkbmap -print -verbose 10
+Both: localectl status

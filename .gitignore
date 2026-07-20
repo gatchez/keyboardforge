@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+linux/logs/*.log
+*.bak_fr_custom
+node_modules/
+.DS_Store
+core/dist/
+core/build/
+core/*.egg-info/
+cli/dist/
+cli/build/
+cli/*.egg-info/

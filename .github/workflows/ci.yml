@@ -1,0 +1,54 @@
+name: KeyboardForge CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system dependencies (xmllint)
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      - name: Install Python test dependencies
+        run: pip install pytest
+
+      - name: Install GUI test dependency (jsdom), if gui/ exists at this phase
+        run: |
+          if [ -f gui/package.json ]; then
+            cd gui && npm install
+          fi
+
+      - name: Make scripts executable
+        run: |
+          [ -f tests/run_all_tests.sh ] && chmod +x tests/run_all_tests.sh || true
+          [ -f tests/test_end_to_end.sh ] && chmod +x tests/test_end_to_end.sh || true
+          [ -d linux ] && chmod +x linux/*.sh linux/modules/*.sh || true
+          [ -f tools/generate_layout.py ] && chmod +x tools/generate_layout.py || true
+
+      # linux/install.sh intentionally requires root even for --dry-run (it
+      # always represents exactly what a real `sudo ./install.sh` run would
+      # do -- see docs/architecture.md). Run the whole suite under sudo,
+      # explicitly forwarding PATH so it can still find the python3/node/
+      # pytest that actions/setup-python and actions/setup-node just set up
+      # (sudo resets PATH by default; `sudo env "PATH=$PATH" ...` is the
+      # standard fix and works regardless of the runner's sudoers policy).
+      - name: Run full test suite (as root, for full Linux installer coverage)
+        run: sudo env "PATH=$PATH" bash tests/run_all_tests.sh

@@ -32,7 +32,9 @@ install_exit_handler() {
     if [[ "$status" -ne 0 && -f "${INSTALL_TRANSACTION_DIR}/active" ]]; then
         rollback_install_transaction || status=1
     fi
-    rm -rf "$LOCK_DIR"
+    if [[ "$DRY_RUN" != "1" ]]; then
+        rm -rf "$LOCK_DIR"
+    fi
     if [[ "$status" -ne 0 ]]; then
         log_error "Installation failed (exit $status)."
     fi
@@ -83,7 +85,10 @@ if [[ "$LAYOUT_NAME" != "fr_custom" || "$LAYOUT_VARIANT" != "custom" ]]; then
 fi
 
 # Initialize a fresh log with a session header
-echo "--- SESSION START: $(date) ---" > "$LOG_FILE"
+if [[ "$DRY_RUN" == "0" ]]; then
+    mkdir -p "$LOG_DIR" || exit 1
+    echo "--- SESSION START: $(date) ---" > "$LOG_FILE" || exit 1
+fi
 echo -e "============================================================\n FR_CUSTOM Installer v$VERSION\n============================================================"
 
 if [[ $EUID -ne 0 ]]; then
@@ -94,7 +99,11 @@ fi
 acquire_lock
 trap 'install_exit_handler $?' EXIT
 trap 'exit 130' INT TERM HUP
-recover_incomplete_installation || exit 1
+if [[ "$DRY_RUN" == "0" ]]; then
+    recover_incomplete_installation || exit 1
+else
+    log_info "[DRY-RUN] Would check for and recover an incomplete installation."
+fi
 
 # --- USER PROMPT ---
 if [[ "$SILENT" == "0" && "$DRY_RUN" == "0" ]]; then
@@ -145,6 +154,8 @@ log_success "Detected User: $ACTUAL_USER | Display: $DISPLAY_SERVER | DE: $DE"
 if [[ "$DE" != "fallback" ]] && ! snapshot_desktop_state "$ACTUAL_USER" "$DE"; then
     log_warn "Could not capture desktop settings; automatic desktop configuration is skipped."
     DE="fallback"
+    INTEGRATION_RESULT="manual"
+    INTEGRATION_DETAIL="The original desktop settings could not be captured safely."
 fi
 
 check_writable "$XKB_SYMBOLS_DIR"
@@ -176,14 +187,7 @@ if [[ "$DISPLAY_SERVER" == "wayland" ]]; then
     log_warn "Wayland detected. Skipping setxkbmap (X11-only utility)."
 fi
 
-if [[ "$DRY_RUN" == "0" ]]; then
-    case "$DE" in
-        gnome) configure_gnome ;;
-        kde)   configure_kde ;;
-        xfce)  configure_xfce ;;
-        *) log_warn "Fallback mode: Please configure the layout manually in your DE (see steps.txt)." ;;
-    esac
-fi
+configure_desktop_integration || exit 1
 
 clear_xkb_cache
 
@@ -191,4 +195,4 @@ if [[ "$DRY_RUN" == "0" ]]; then
     rm -f "${INSTALL_TRANSACTION_DIR}/active" || exit 1
     rm -rf "$INSTALL_TRANSACTION_DIR" || log_warn "Transaction snapshots remain at ${INSTALL_TRANSACTION_DIR}."
 fi
-log_success "Installation Complete. See steps.txt for Wayland notes. Reboot recommended."
+report_installation_result || exit 1

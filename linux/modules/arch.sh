@@ -26,7 +26,7 @@ apply_arch_system_config() {
     log_info "Applying Arch Linux system configuration..."
     if [[ "$DRY_RUN" == "0" ]]; then
         snapshot_state_file \
-            "/etc/X11/xorg.conf.d/00-keyboard.conf" \
+            "$SYSTEM_X11_KEYBOARD_FILE" \
             "system-x11-keyboard.conf" || {
                 log_error "Could not save the original X11 keyboard configuration."
                 return 1

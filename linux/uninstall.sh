@@ -18,6 +18,11 @@ acquire_lock
 
 log_info "Starting uninstallation..."
 
+if ! layout_installation_present; then
+    log_success "KeyboardForge layout is already uninstalled; no changes were needed."
+    exit 0
+fi
+
 if [[ -f "${INSTALL_STATE_DIR}/desktop" ]]; then
     restore_desktop_state || log_warn "Review desktop settings for manual restoration."
 elif [[ -d "$INSTALL_STATE_DIR" ]]; then
@@ -42,8 +47,8 @@ rm -f "$INSTALLED_VERSION_FILE"
 
 # 3. Restore OS-level configs
 if [[ -f /etc/debian_version ]]; then
-    restore_state_file "/etc/default/keyboard.bak_fr_custom" \
-        "/etc/default/keyboard" \
+    restore_state_file "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" \
+        "$DEBIAN_KEYBOARD_FILE" \
         || log_warn "Could not restore /etc/default/keyboard; review it manually."
     if command -v dpkg-reconfigure >/dev/null 2>&1; then
         safe_exec "Reconfiguring xkb-data" dpkg-reconfigure -f noninteractive xkb-data
@@ -54,7 +59,7 @@ if [[ -f /etc/debian_version ]]; then
     log_success "Restored Debian system configurations."
 elif [[ -f /etc/fedora-release ]]; then
     restore_state_file "${INSTALL_STATE_DIR}/system-x11-keyboard.conf" \
-        "/etc/X11/xorg.conf.d/00-keyboard.conf" \
+        "$SYSTEM_X11_KEYBOARD_FILE" \
         || log_warn "Could not restore Fedora's X11 keyboard configuration; review it manually."
     if command -v dracut >/dev/null 2>&1; then
         safe_exec "Rebuilding initramfs with dracut" dracut -f
@@ -62,7 +67,7 @@ elif [[ -f /etc/fedora-release ]]; then
     log_success "Restored Fedora system keyboard configuration."
 elif [[ -f /etc/arch-release ]]; then
     restore_state_file "${INSTALL_STATE_DIR}/system-x11-keyboard.conf" \
-        "/etc/X11/xorg.conf.d/00-keyboard.conf" \
+        "$SYSTEM_X11_KEYBOARD_FILE" \
         || log_warn "Could not restore Arch's X11 keyboard configuration; review it manually."
     if command -v mkinitcpio >/dev/null 2>&1; then
         safe_exec "Rebuilding initramfs with mkinitcpio" mkinitcpio -P

@@ -10,9 +10,12 @@ EVDEV_XML="${XKB_RULES_DIR}/evdev.xml"
 INSTALLED_VERSION_FILE="${XKB_SYMBOLS_DIR}/fr_custom.version"
 INSTALL_STATE_DIR="/var/lib/keyboardforge/fr_custom"
 INSTALL_TRANSACTION_DIR="${INSTALL_STATE_DIR}/transaction"
+DEBIAN_KEYBOARD_FILE="/etc/default/keyboard"
+SYSTEM_X11_KEYBOARD_FILE="/etc/X11/xorg.conf.d/00-keyboard.conf"
 LOCK_DIR="/tmp/fr_custom_installer.lock"
-
-mkdir -p "$LOG_DIR"
+INTEGRATION_RESULT="pending"
+INTEGRATION_DETAIL=""
+DRY_RUN="${DRY_RUN:-0}"
 
 # --- LOGGING ENGINE (timestamped file, clean console) ---
 log_msg() {
@@ -22,8 +25,10 @@ log_msg() {
     timestamp=$(date "+%Y-%m-%d %H:%M:%S")
     # Print clean version to terminal
     echo -e "$msg"
-    # Print timestamped version to log file
-    echo "[$timestamp] $msg" >> "$LOG_FILE"
+    if [[ "$DRY_RUN" != "1" ]]; then
+        mkdir -p "$LOG_DIR" || return 1
+        echo "[$timestamp] $msg" >> "$LOG_FILE" || return 1
+    fi
 }
 log_info()    { log_msg "INFO"    " [i] $1"; }
 log_success() { log_msg "SUCCESS" "[✔] $1"; }
@@ -32,6 +37,11 @@ log_error()   { log_msg "ERROR"   "[X] ERROR: $1"; }
 
 # --- CONCURRENCY PROTECTION ---
 acquire_lock() {
+    if [[ "$DRY_RUN" == "1" ]]; then
+        log_info "[DRY-RUN] Would acquire installer lock: $LOCK_DIR"
+        return 0
+    fi
+
     if ! mkdir "$LOCK_DIR" 2>/dev/null; then
         log_error "Another instance is running. (Lock: $LOCK_DIR)"
         exit 1
@@ -55,6 +65,74 @@ safe_exec() {
         log_error "Failed: $desc. Check $LOG_FILE for details."
         return 1
     fi
+}
+
+configure_desktop_integration() {
+    local configure_status=0
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        INTEGRATION_RESULT="simulated"
+        INTEGRATION_DETAIL="Desktop settings were not changed during the dry run."
+        return 0
+    fi
+
+    if [[ "$DE" == "fallback" ]]; then
+        INTEGRATION_RESULT="manual"
+        INTEGRATION_DETAIL="No supported desktop environment was detected."
+        return 0
+    fi
+
+    if [[ "$DE" == "xfce" && "$DISPLAY_SERVER" != "x11" ]]; then
+        INTEGRATION_RESULT="manual"
+        INTEGRATION_DETAIL="XFCE automatic configuration is supported only on X11."
+        return 0
+    fi
+
+    case "$DE" in
+        gnome) configure_gnome || configure_status=$? ;;
+        kde) configure_kde || configure_status=$? ;;
+        xfce) configure_xfce || configure_status=$? ;;
+        *)
+            INTEGRATION_RESULT="manual"
+            INTEGRATION_DETAIL="The detected desktop environment is not supported."
+            return 0
+            ;;
+    esac
+
+    if [[ "$configure_status" == "0" ]]; then
+        INTEGRATION_RESULT="configured"
+        INTEGRATION_DETAIL="Desktop keyboard settings were configured."
+    else
+        INTEGRATION_RESULT="failed"
+        INTEGRATION_DETAIL="Automatic desktop keyboard configuration failed."
+        log_warn "$INTEGRATION_DETAIL The system-wide layout installation can still be used; see the troubleshooting instructions."
+        if [[ -f "${INSTALL_TRANSACTION_DIR}/desktop" ]] &&
+            ! restore_desktop_state "$INSTALL_TRANSACTION_DIR" 1; then
+            log_error "Could not restore desktop settings after the optional integration failure."
+            return 1
+        fi
+    fi
+}
+
+report_installation_result() {
+    case "$INTEGRATION_RESULT" in
+        configured)
+            log_success "Core layout installation and desktop integration completed. Reboot recommended."
+            ;;
+        simulated)
+            log_success "Dry run completed; no system installation changes were made."
+            ;;
+        manual)
+            log_warn "Core layout installation completed, but desktop integration needs manual configuration. $INTEGRATION_DETAIL See steps.txt."
+            ;;
+        failed)
+            log_warn "Core layout installation completed, but automatic desktop integration failed. $INTEGRATION_DETAIL Check the log and configure the layout manually if needed."
+            ;;
+        *)
+            log_error "Installation completed without a recorded desktop integration result."
+            return 1
+            ;;
+    esac
 }
 
 check_writable() {
@@ -141,14 +219,14 @@ snapshot_install_transaction() {
     case "$distro" in
         debian)
             targets+=(
-                "/etc/default/keyboard:system-keyboard"
-                "/etc/default/keyboard.bak_fr_custom:system-keyboard-backup"
-                "/etc/default/keyboard.bak_fr_custom.absent:system-keyboard-absent-marker"
+                "${DEBIAN_KEYBOARD_FILE}:system-keyboard"
+                "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom:system-keyboard-backup"
+                "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent:system-keyboard-absent-marker"
             )
             ;;
         fedora|arch)
             targets+=(
-                "/etc/X11/xorg.conf.d/00-keyboard.conf:system-x11-keyboard"
+                "${SYSTEM_X11_KEYBOARD_FILE}:system-x11-keyboard"
             )
             ;;
     esac
@@ -185,16 +263,16 @@ rollback_install_transaction() {
     if [[ -f "${INSTALL_TRANSACTION_DIR}/system-keyboard" || \
           -f "${INSTALL_TRANSACTION_DIR}/system-keyboard.absent" ]]; then
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard" \
-            "/etc/default/keyboard" || result=1
+            "$DEBIAN_KEYBOARD_FILE" || result=1
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-backup" \
-            "/etc/default/keyboard.bak_fr_custom" || result=1
+            "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" || result=1
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-absent-marker" \
-            "/etc/default/keyboard.bak_fr_custom.absent" || result=1
+            "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent" || result=1
     fi
     if [[ -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard" || \
           -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard.absent" ]]; then
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-x11-keyboard" \
-            "/etc/X11/xorg.conf.d/00-keyboard.conf" || result=1
+            "$SYSTEM_X11_KEYBOARD_FILE" || result=1
     fi
 
     if [[ -f "${INSTALL_TRANSACTION_DIR}/desktop" ]]; then
@@ -237,6 +315,16 @@ recover_incomplete_installation() {
         log_warn "An incomplete installation transaction was found."
         rollback_install_transaction
     fi
+}
+
+layout_installation_present() {
+    [[ -e "${XKB_SYMBOLS_DIR}/fr_custom" ||
+       -e "$INSTALLED_VERSION_FILE" ||
+       -e "${EVDEV_XML}.bak_fr_custom" ||
+       -e "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" ||
+       -e "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent" ||
+       ( -d "$INSTALL_STATE_DIR" &&
+         -n "$(find "$INSTALL_STATE_DIR" -mindepth 1 -print -quit 2>/dev/null)" ) ]]
 }
 
 check_layout_conflicts() {

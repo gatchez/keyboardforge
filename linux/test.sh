@@ -41,7 +41,64 @@ for f in fr_custom rules VERSION \
     fi
 done
 
-# 4. Verify backup preservation and layout conflict handling using fixtures.
+# 4. Verify --dry-run helpers do not create files, logs, or locks.
+DRY_RUN_TEST_DIR=$(mktemp -d)
+if [[ -z "$DRY_RUN_TEST_DIR" ]]; then
+    echo "[FAIL] Could not create a temporary dry-run test directory"
+    FAILED=1
+else
+    if (
+        cd "$DRY_RUN_TEST_DIR" || exit 1
+        DRY_RUN=1
+        source "$SCRIPT_DIR/modules/common.sh"
+        INSTALL_STATE_DIR="$DRY_RUN_TEST_DIR/state"
+        INSTALL_TRANSACTION_DIR="$DRY_RUN_TEST_DIR/state/transaction"
+        LOCK_DIR="$DRY_RUN_TEST_DIR/installer.lock"
+        LOG_DIR="$DRY_RUN_TEST_DIR/logs"
+        LOG_FILE="$LOG_DIR/install.log"
+
+        [[ ! -e "$LOG_DIR" ]] || exit 1
+        mkdir "$LOG_DIR"
+        printf 'existing log must stay unchanged\n' > "$LOG_FILE"
+        mkdir "$LOCK_DIR"
+        printf 'existing lock must stay untouched\n' > "$LOCK_DIR/owner"
+        log_info "Dry-run logging fixture"
+        acquire_lock
+        printf 'before\n' > source.conf
+        backup_file "$DRY_RUN_TEST_DIR/source.conf"
+        snapshot_state_file "$DRY_RUN_TEST_DIR/source.conf" "saved.conf"
+        safe_exec "Dry-run command fixture" touch "$DRY_RUN_TEST_DIR/command-ran"
+        snapshot_desktop_state "missing-user" "gnome"
+        configure_desktop_integration
+        clear_xkb_cache
+
+        apt-get() { : > "$DRY_RUN_TEST_DIR/package-command-ran"; }
+        dnf() { : > "$DRY_RUN_TEST_DIR/package-command-ran"; }
+        pacman() { : > "$DRY_RUN_TEST_DIR/package-command-ran"; }
+        source "$SCRIPT_DIR/modules/debian.sh"
+        install_dependencies
+        source "$SCRIPT_DIR/modules/fedora.sh"
+        install_dependencies
+        source "$SCRIPT_DIR/modules/arch.sh"
+        install_dependencies
+
+        [[ "$(cat "$LOG_FILE")" == "existing log must stay unchanged" &&
+           "$(cat "$LOCK_DIR/owner")" == "existing lock must stay untouched" &&
+           ! -e "$INSTALL_STATE_DIR" &&
+           ! -e "$DRY_RUN_TEST_DIR/source.conf.bak_fr_custom" &&
+           ! -e "$DRY_RUN_TEST_DIR/command-ran" &&
+           ! -e "$DRY_RUN_TEST_DIR/package-command-ran" &&
+           "$INTEGRATION_RESULT" == "simulated" ]]
+    ); then
+        echo "[PASS] Dry-run helpers do not write logs, locks, backups, state, or package changes"
+    else
+        echo "[FAIL] Dry-run caused a persistent filesystem or package-manager change"
+        FAILED=1
+    fi
+    rm -rf "$DRY_RUN_TEST_DIR"
+fi
+
+# 5. Verify backup preservation and layout conflict handling using fixtures.
 STATE_TEST_DIR=$(mktemp -d)
 if [[ -z "$STATE_TEST_DIR" ]]; then
     echo "[FAIL] Could not create a temporary state-test directory"
@@ -51,6 +108,8 @@ else
         cd "$STATE_TEST_DIR" || exit 1
         source "$SCRIPT_DIR/modules/common.sh"
         source "$SCRIPT_DIR/modules/gnome.sh"
+        source "$SCRIPT_DIR/modules/kde.sh"
+        source "$SCRIPT_DIR/modules/xfce.sh"
         DRY_RUN=0
         INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
         INSTALL_TRANSACTION_DIR="$STATE_TEST_DIR/transaction"
@@ -59,6 +118,8 @@ else
         EVDEV_XML="$XKB_RULES_DIR/evdev.xml"
         INSTALLED_VERSION_FILE="$XKB_SYMBOLS_DIR/fr_custom.version"
         TEST_HOME="$STATE_TEST_DIR/user-home"
+        DEBIAN_KEYBOARD_FILE="$STATE_TEST_DIR/etc/default/keyboard"
+        SYSTEM_X11_KEYBOARD_FILE="$STATE_TEST_DIR/etc/X11/xorg.conf.d/00-keyboard.conf"
         TEST_USER="$(id -un)"
         mkdir -p "$XKB_SYMBOLS_DIR" "$XKB_RULES_DIR"
         printf 'original symbols\n' > "$XKB_SYMBOLS_DIR/fr_custom"
@@ -92,9 +153,49 @@ else
             return 0
         }
 
+        GNOME_CONFIG_IMPLEMENTATION="$(declare -f configure_gnome)"
+        KDE_CONFIG_IMPLEMENTATION="$(declare -f configure_kde)"
+        XFCE_CONFIG_IMPLEMENTATION="$(declare -f configure_xfce)"
+        configure_gnome() { return "${GNOME_TEST_RESULT:-0}"; }
+        configure_kde() { return "${KDE_TEST_RESULT:-0}"; }
+        configure_xfce() { return "${XFCE_TEST_RESULT:-0}"; }
+
+        DE="gnome"
+        DISPLAY_SERVER="wayland"
+        GNOME_TEST_RESULT=0
+        configure_desktop_integration
+        [[ "$INTEGRATION_RESULT" == "configured" ]] || exit 1
+
+        GNOME_TEST_RESULT=1
+        configure_desktop_integration
+        [[ "$INTEGRATION_RESULT" == "failed" ]] || exit 1
+
+        DE="xfce"
+        DISPLAY_SERVER="wayland"
+        configure_desktop_integration
+        [[ "$INTEGRATION_RESULT" == "manual" ]] || exit 1
+
+        DE="fallback"
+        configure_desktop_integration
+        [[ "$INTEGRATION_RESULT" == "manual" ]] || exit 1
+
+        DRY_RUN=1
+        DE="gnome"
+        configure_desktop_integration
+        [[ "$INTEGRATION_RESULT" == "simulated" ]] || exit 1
+        DRY_RUN=0
+        eval "$GNOME_CONFIG_IMPLEMENTATION"
+        eval "$KDE_CONFIG_IMPLEMENTATION"
+        eval "$XFCE_CONFIG_IMPLEMENTATION"
+
         printf 'original system state\n' > managed.conf
         backup_file "$STATE_TEST_DIR/managed.conf"
         printf 'first installed state\n' > managed.conf
+        backup_file "$STATE_TEST_DIR/managed.conf"
+        if [[ "$(cat managed.conf.bak_fr_custom)" != "original system state" ]]; then
+            exit 1
+        fi
+        printf 'second installed state\n' > managed.conf
         backup_file "$STATE_TEST_DIR/managed.conf"
         if [[ "$(cat managed.conf.bak_fr_custom)" != "original system state" ]]; then
             exit 1
@@ -167,6 +268,19 @@ else
             exit 1
         fi
 
+        snapshot_install_transaction "unknown" "gnome" "$TEST_USER"
+        configure_gnome() { return 1; }
+        DE="gnome"
+        DISPLAY_SERVER="wayland"
+        configure_desktop_integration
+        eval "$GNOME_CONFIG_IMPLEMENTATION"
+        if [[ "$INTEGRATION_RESULT" != "failed" ||
+              "$(cat "$STATE_TEST_DIR/gnome-restored-sources")" != \
+                "[('xkb', 'us'), ('xkb', 'us+intl')]" ]]; then
+            exit 1
+        fi
+        rm -rf "$INSTALL_TRANSACTION_DIR"
+
         snapshot_install_transaction "unknown" "fallback" "$TEST_USER"
         printf 'partially installed symbols\n' > "$XKB_SYMBOLS_DIR/fr_custom"
         printf '<root>partially changed rules</root>\n' > "$EVDEV_XML"
@@ -180,6 +294,45 @@ else
               -e "$INSTALL_TRANSACTION_DIR/active" ]]; then
             exit 1
         fi
+        recover_incomplete_installation || exit 1
+        if [[ "$(cat "$XKB_SYMBOLS_DIR/fr_custom")" != "original symbols" ||
+              "$(cat "$EVDEV_XML")" != '<root>original rules</root>' ]]; then
+            exit 1
+        fi
+
+        printf '<name>fr_custom</name>\n' > rules
+        printf '<root><layoutList>\n</layoutList></root>\n' > "$EVDEV_XML"
+        validate_and_inject_xml
+        validate_and_inject_xml
+        if [[ "$(grep -o '<name>fr_custom</name>' "$EVDEV_XML" | wc -l)" -ne 1 ]]; then
+            exit 1
+        fi
+
+        : > "$XKB_SYMBOLS_DIR/fr_custom"
+        : > "$INSTALLED_VERSION_FILE"
+        if ! layout_installation_present; then
+            exit 1
+        fi
+        rm -f "$XKB_SYMBOLS_DIR/fr_custom" "$INSTALLED_VERSION_FILE"
+        if layout_installation_present; then
+            exit 1
+        fi
+        mkdir -p "$(dirname "$DEBIAN_KEYBOARD_FILE")"
+        : > "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent"
+        if ! layout_installation_present; then
+            exit 1
+        fi
+        rm -f "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent"
+        mkdir -p "$INSTALL_STATE_DIR"
+        : > "$INSTALL_STATE_DIR/system-x11-keyboard.conf"
+        if ! layout_installation_present; then
+            exit 1
+        fi
+        rm -rf "$INSTALL_STATE_DIR"
+        if layout_installation_present; then
+            exit 1
+        fi
+
         if safe_exec "Expected failure fixture" false; then
             exit 1
         fi
@@ -220,12 +373,17 @@ else
             exit 1
         fi
     ); then
-        echo "[PASS] Backups preserve first-install state across reinstalls"
+        echo "[PASS] Repeated backup calls preserve first-install state"
         echo "[PASS] Originally absent files retain their absent-state marker"
         echo "[PASS] Saved configuration restores original contents and absence"
         echo "[PASS] GNOME, KDE, and XFCE settings restore to their captured state"
         echo "[PASS] Incomplete install transactions restore original files"
+        echo "[PASS] Repeated recovery is a safe no-op after successful recovery"
+        echo "[PASS] Repeated XKB rule registration does not duplicate entries"
+        echo "[PASS] Uninstall detects both installed state and already-removed state"
         echo "[PASS] Required command failures are returned to the installer"
+        echo "[PASS] Optional desktop outcomes are reported distinctly"
+        echo "[PASS] Failed optional integration restores partial desktop changes"
         echo "[PASS] Layout conflicts reject unmanaged files and allow managed reinstall"
     else
         echo "[FAIL] Installer state and conflict handling"

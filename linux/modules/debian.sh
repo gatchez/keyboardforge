@@ -19,7 +19,7 @@ install_dependencies() {
 
 apply_debian_system_config() {
     log_info "Applying Debian/Ubuntu system configuration..."
-    local default_kbd="/etc/default/keyboard"
+    local default_kbd="$DEBIAN_KEYBOARD_FILE"
     check_writable "$default_kbd"
 
     if [[ -f "$default_kbd" ]]; then

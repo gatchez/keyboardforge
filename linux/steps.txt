@@ -64,7 +64,8 @@ The script will ask for confirmation before modifying system files.
 
 ADVANCED FLAGS:
   --yes, -y     (Silent mode, bypasses the confirmation prompt)
-  --dry-run     (Simulate installation without saving any changes)
+  --dry-run     (Simulate installation without persistent filesystem,
+                 package-manager, log, lock, or cache changes)
 
 Example: sudo ./install.sh --yes
 
@@ -97,6 +98,16 @@ run (for example, a power loss), the next installer run detects and rolls
 back the incomplete transaction before continuing. Dependencies installed
 by the system package manager are not automatically removed during rollback.
 
+`--dry-run` reports planned actions without creating logs, lock files,
+backups, transaction snapshots, markers, or cache changes, and it does not
+invoke package managers or desktop configuration commands.
+
+Desktop integration is optional. A failure to configure GNOME, KDE, or XFCE
+does not undo a successful system-wide installation; the installer reports
+this as a partial result and restores any desktop settings changed during
+the failed attempt when possible. Unsupported or unavailable desktop
+configuration is reported as requiring manual setup.
+
 =====================================================================
 STEP 3 — REBOOT
 =====================================================================
@@ -117,6 +128,8 @@ On a managed reinstall, existing `.bak_fr_custom` backups (and the Debian
 marker for a file that was originally absent) are preserved. They continue
 to represent the state from before the first install, rather than being
 replaced with files already modified by KeyboardForge.
+Running the uninstaller again after a successful removal is safe; it reports
+that the layout is already uninstalled and performs no further changes.
 
 The installer also saves the pre-install GNOME input-source value or the
 KDE/XFCE keyboard configuration file under

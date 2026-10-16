@@ -1,6 +1,9 @@
 # Local project checklist
 /TODO.md
 
+# Git workflow files
+/GIT_WORKFLOW.md
+
 # Python bytecode, test caches, and virtual environments
 __pycache__/
 *.py[cod]

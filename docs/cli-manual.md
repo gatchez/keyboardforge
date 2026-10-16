@@ -203,6 +203,14 @@ may omit these options and default to `fr_custom/custom`. The installer
 currently rejects any other pair rather than silently installing the
 bundled layout in its place.
 
+Before installing, the script checks whether the target XKB symbols file
+or layout-name entry already exists. If either exists without the
+KeyboardForge installed-version marker, installation stops and reports the
+conflict instead of overwriting or duplicating it. An existing marked
+installation is treated as a managed reinstall/upgrade. A legacy or manual
+installation without that marker cannot be distinguished safely and must
+be resolved explicitly before installation.
+
 ```bash
 keyboardforge install layouts/fr_custom.json --dry-run  # preview first
 keyboardforge install layouts/fr_custom.json --yes      # install without prompt

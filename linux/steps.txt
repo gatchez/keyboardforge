@@ -69,19 +69,23 @@ ADVANCED FLAGS:
 Example: sudo ./install.sh --yes
 
 What the script automates:
- 1. Backs up system files (`evdev.xml`, and the distro-specific keyboard
+ 1. Checks for an existing target symbols file or rules entry. If one
+    exists without the KeyboardForge installed-version marker, installation
+    stops rather than overwriting or duplicating it. Older/manual installs
+    without that marker must be resolved explicitly before retrying.
+ 2. Installs missing dependencies automatically (libxml2-utils / libxml2 /
+    pacman's libxml2 + xkeyboard-config, depending on distro).
+ 3. Backs up system files (`evdev.xml`, and the distro-specific keyboard
     config: `/etc/default/keyboard` on Debian, or localectl state on
     Fedora/Arch).
- 2. Validates XML structure (using `xmllint`) and injects layout rules.
- 3. Copies `fr_custom` to `/usr/share/X11/xkb/symbols/`.
- 4. Installs missing dependencies automatically (libxml2-utils / libxml2 /
-    pacman's libxml2 + xkeyboard-config, depending on distro).
- 5. Configures system defaults:
+ 4. Copies `fr_custom` to `/usr/share/X11/xkb/symbols/`.
+ 5. Validates XML structure (using `xmllint`) and injects layout rules.
+ 6. Configures system defaults:
       - Debian: `XKBLAYOUT="fr_custom"`, `XKBVARIANT="custom"`
       - Fedora/Arch: `localectl set-x11-keymap fr_custom pc105 custom`
- 6. Rebuilds system caches safely where relevant (initramfs / dracut /
+ 7. Rebuilds system caches safely where relevant (initramfs / dracut /
     mkinitcpio -P).
- 7. Detects Wayland vs X11 and attempts desktop configuration:
+ 8. Detects Wayland vs X11 and attempts desktop configuration:
       - GNOME: gsettings input-source configuration.
       - KDE Plasma: kwriteconfig5/6 layout configuration.
       - XFCE on X11: xfconf-query and setxkbmap configuration.

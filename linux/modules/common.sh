@@ -78,6 +78,38 @@ backup_file() {
     fi
 }
 
+check_layout_conflicts() {
+    local layout_name="$1"
+    local symbols_file="$2"
+    local rules_file="$3"
+    local installed_marker="$4"
+    local conflict_description=""
+
+    if [[ -e "$symbols_file" ]]; then
+        conflict_description="XKB symbols file '$symbols_file'"
+    fi
+
+    if [[ -f "$rules_file" ]] && grep -Fq "<name>${layout_name}</name>" "$rules_file"; then
+        if [[ -n "$conflict_description" ]]; then
+            conflict_description+=" and "
+        fi
+        conflict_description+="rules entry '$layout_name' in '$rules_file'"
+    fi
+
+    if [[ -z "$conflict_description" ]]; then
+        return 0
+    fi
+
+    if [[ -f "$installed_marker" ]]; then
+        log_info "Existing KeyboardForge installation detected; allowing managed reinstall."
+        return 0
+    fi
+
+    log_error "Cannot install '$layout_name': existing ${conflict_description} is not owned by a marked KeyboardForge installation."
+    log_info "No system files were changed. Resolve the conflict or remove the existing layout before retrying."
+    return 1
+}
+
 detect_actual_user() {
     ACTUAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "$USER")}"
 }

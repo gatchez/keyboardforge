@@ -95,15 +95,12 @@ log_info "Installing core layout files..."
 if [[ -f /etc/debian_version ]]; then
     OS="debian"
     source modules/debian.sh
-    install_dependencies
 elif [[ -f /etc/fedora-release ]]; then
     OS="fedora"
     source modules/fedora.sh
-    install_dependencies
 elif [[ -f /etc/arch-release ]]; then
     OS="arch"
     source modules/arch.sh
-    install_dependencies
 else
     log_error "Unsupported OS. Supported: Debian/Ubuntu, Fedora, Arch Linux."
     log_info "See steps.txt for manual installation."
@@ -111,6 +108,16 @@ else
 fi
 
 log_success "Detected OS type: $OS"
+
+if ! check_layout_conflicts \
+    "$LAYOUT_NAME" \
+    "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" \
+    "$EVDEV_XML" \
+    "$INSTALLED_VERSION_FILE"; then
+    exit 1
+fi
+
+install_dependencies
 
 # --- CORE FILES INSTALLATION ---
 check_writable "$XKB_SYMBOLS_DIR"

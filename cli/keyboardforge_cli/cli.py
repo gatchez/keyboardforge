@@ -189,6 +189,18 @@ def cmd_install(args) -> int:
         print("Refusing to install: layout has validation errors.", file=sys.stderr)
         return 1
 
+    if (layout.xkb_name, layout.variant) != ("fr_custom", "custom"):
+        print(
+            "ERROR: the Linux installer currently supports only the "
+            "'fr_custom' layout with the 'custom' variant.",
+            file=sys.stderr,
+        )
+        print(
+            "Other layouts can be exported, but cannot yet be installed.",
+            file=sys.stderr,
+        )
+        return 1
+
     try:
         generate(layout, args.linux_dir)
     except LayoutGenerationError as exc:
@@ -201,6 +213,7 @@ def cmd_install(args) -> int:
         return 1
 
     cmd = ["sudo", install_script] if os.geteuid() != 0 else [install_script]
+    cmd.extend(["--layout-name", layout.xkb_name, "--variant", layout.variant])
     if args.dry_run:
         cmd.append("--dry-run")
     if args.yes:
@@ -301,7 +314,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("directory", nargs="?", default=str(_REPO_ROOT / "layouts"))
     p.set_defaults(func=cmd_list)
 
-    p = sub.add_parser("install", help="Generate + install a layout on this Linux system (needs root).")
+    p = sub.add_parser(
+        "install",
+        help="Generate + install the supported layout on this Linux system (needs root).",
+        description=(
+            "Generate XKB files and run the Linux installer. Currently only "
+            "the fr_custom/custom layout is supported."
+        ),
+    )
     p.add_argument("layout")
     p.add_argument("--linux-dir", default=DEFAULT_LINUX_DIR, help="Path to the linux/ installer directory")
     p.add_argument("--dry-run", action="store_true")

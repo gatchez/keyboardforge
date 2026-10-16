@@ -197,6 +197,12 @@ into `--linux-dir`, but the installer still consumes the fixed
 `fr_custom`/`rules` files. Support for arbitrary layout names is not
 implemented yet.
 
+The CLI passes the JSON layout's `xkb_name` and `variant` to `install.sh`
+using `--layout-name NAME --variant NAME`. Direct calls to `install.sh`
+may omit these options and default to `fr_custom/custom`. The installer
+currently rejects any other pair rather than silently installing the
+bundled layout in its place.
+
 ```bash
 keyboardforge install layouts/fr_custom.json --dry-run  # preview first
 keyboardforge install layouts/fr_custom.json --yes      # install without prompt

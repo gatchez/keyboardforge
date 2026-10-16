@@ -28,14 +28,46 @@ trap 'log_error "Unexpected failure at line $LINENO in command: $BASH_COMMAND"' 
 
 DRY_RUN=0
 SILENT=0
+LAYOUT_NAME="fr_custom"
+LAYOUT_VARIANT="custom"
 
-for arg in "$@"; do
-    case "$arg" in
-        --dry-run) DRY_RUN=1 ;;
-        --yes|-y)  SILENT=1 ;;
-        *) log_warn "Unknown argument: $arg" ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --layout-name)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo "ERROR: --layout-name requires a value." >&2
+                exit 1
+            fi
+            LAYOUT_NAME="$2"
+            shift 2
+            ;;
+        --variant)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo "ERROR: --variant requires a value." >&2
+                exit 1
+            fi
+            LAYOUT_VARIANT="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        --yes|-y)
+            SILENT=1
+            shift
+            ;;
+        *)
+            echo "ERROR: Unknown argument: $1" >&2
+            exit 1
+            ;;
     esac
 done
+
+if [[ "$LAYOUT_NAME" != "fr_custom" || "$LAYOUT_VARIANT" != "custom" ]]; then
+    echo "ERROR: This installer currently supports only fr_custom/custom." >&2
+    exit 1
+fi
 
 # Initialize a fresh log with a session header
 echo "--- SESSION START: $(date) ---" > "$LOG_FILE"

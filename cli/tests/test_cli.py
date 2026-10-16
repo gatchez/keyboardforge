@@ -109,6 +109,73 @@ def test_list_empty_directory(tmp_path, capsys):
     assert "No layout JSON files found" in captured.out
 
 
+def test_install_rejects_unsupported_layout_without_generating(
+    tmp_path, monkeypatch, capsys
+):
+    import keyboardforge_cli.cli as cli
+
+    layout_path = tmp_path / "other.json"
+    run(["new", "other_layout", "custom", str(layout_path), "--description", "Other"])
+    run(["set-key", str(layout_path), "AE01", "1"])
+    output_dir = tmp_path / "linux"
+    output_dir.mkdir()
+    (output_dir / "install.sh").write_text("placeholder")
+
+    def unexpected_generate(*args, **kwargs):
+        pytest.fail("unsupported layouts must be rejected before generation")
+
+    monkeypatch.setattr(cli, "generate", unexpected_generate)
+    rc = run(["install", str(layout_path), "--linux-dir", str(output_dir)])
+
+    assert rc == 1
+    assert (
+        "currently supports only the 'fr_custom' layout"
+        in capsys.readouterr().err
+    )
+    assert list(output_dir.iterdir()) == [output_dir / "install.sh"]
+
+
+def test_install_passes_layout_name_and_variant_to_installer(tmp_path, monkeypatch):
+    import keyboardforge_cli.cli as cli
+
+    layout_path = tmp_path / "fr_custom.json"
+    run([
+        "new", "fr_custom", "custom", str(layout_path),
+        "--description", "French Custom",
+    ])
+    run(["set-key", str(layout_path), "AE01", "1"])
+    linux_dir = tmp_path / "linux"
+    linux_dir.mkdir()
+    install_script = linux_dir / "install.sh"
+    install_script.write_text("placeholder")
+    calls = []
+
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+
+    def fake_run(command, cwd):
+        calls.append((command, cwd))
+        return cli.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+
+    rc = run([
+        "install", str(layout_path), "--linux-dir", str(linux_dir),
+        "--dry-run", "--yes",
+    ])
+
+    assert rc == 0
+    assert calls == [(
+        [
+            str(install_script),
+            "--layout-name", "fr_custom",
+            "--variant", "custom",
+            "--dry-run",
+            "--yes",
+        ],
+        str(linux_dir),
+    )]
+
+
 # --- system layout detection & import (real OS data) ------------------------
 
 XKB_SYMBOLS_DIR = "/usr/share/X11/xkb/symbols"

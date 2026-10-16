@@ -68,13 +68,20 @@ check_writable() {
 
 backup_file() {
     local file=$1
+    local backup_file="${file}.bak_fr_custom"
+    local absent_marker="${backup_file}.absent"
+
     if [[ -f "$file" ]]; then
-        if [[ "$DRY_RUN" == "1" ]]; then
-            log_info "[DRY-RUN] Would back up: $file -> ${file}.bak_fr_custom"
+        if [[ -e "$backup_file" || -e "$absent_marker" ]]; then
+            log_info "Preserving original backup state for $file."
             return 0
         fi
-        cp "$file" "${file}.bak_fr_custom"
-        log_success "Backup created: ${file}.bak_fr_custom"
+        if [[ "$DRY_RUN" == "1" ]]; then
+            log_info "[DRY-RUN] Would back up: $file -> $backup_file"
+            return 0
+        fi
+        cp "$file" "$backup_file"
+        log_success "Backup created: $backup_file"
     fi
 }
 

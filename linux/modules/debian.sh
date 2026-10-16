@@ -22,7 +22,9 @@ apply_debian_system_config() {
         log_warn "$default_kbd not found (common on minimal/container installs). It will be created."
         # Sentinel so uninstall.sh knows to remove the file entirely rather
         # than just reset its contents, restoring the original "absent" state.
-        [[ "$DRY_RUN" == "0" ]] && : > "${default_kbd}.bak_fr_custom.absent"
+        if [[ "$DRY_RUN" == "0" && ! -e "${default_kbd}.bak_fr_custom.absent" ]]; then
+            : > "${default_kbd}.bak_fr_custom.absent"
+        fi
     fi
 
     if [[ "$DRY_RUN" == "0" ]]; then

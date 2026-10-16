@@ -41,58 +41,76 @@ for f in fr_custom rules VERSION \
     fi
 done
 
-# 4. Verify layout conflict handling using temporary fixture files.
-CONFLICT_TEST_DIR=$(mktemp -d)
-if [[ -z "$CONFLICT_TEST_DIR" ]]; then
-    echo "[FAIL] Could not create a temporary conflict-test directory"
+# 4. Verify backup preservation and layout conflict handling using fixtures.
+STATE_TEST_DIR=$(mktemp -d)
+if [[ -z "$STATE_TEST_DIR" ]]; then
+    echo "[FAIL] Could not create a temporary state-test directory"
     FAILED=1
 else
     if (
-        cd "$CONFLICT_TEST_DIR" || exit 1
+        cd "$STATE_TEST_DIR" || exit 1
         source "$SCRIPT_DIR/modules/common.sh"
+        DRY_RUN=0
+
+        printf 'original system state\n' > managed.conf
+        backup_file "$STATE_TEST_DIR/managed.conf"
+        printf 'first installed state\n' > managed.conf
+        backup_file "$STATE_TEST_DIR/managed.conf"
+        if [[ "$(cat managed.conf.bak_fr_custom)" != "original system state" ]]; then
+            exit 1
+        fi
+
+        printf 'originally absent\n' > absent.conf.bak_fr_custom.absent
+        printf 'installed state\n' > absent.conf
+        backup_file "$STATE_TEST_DIR/absent.conf"
+        if [[ ! -f absent.conf.bak_fr_custom.absent || -e absent.conf.bak_fr_custom ]]; then
+            exit 1
+        fi
 
         mkdir -p symbols
         : > rules.xml
         if ! check_layout_conflicts "fr_custom" \
-            "$CONFLICT_TEST_DIR/symbols/fr_custom" \
-            "$CONFLICT_TEST_DIR/rules.xml" \
-            "$CONFLICT_TEST_DIR/installed.version"; then
+            "$STATE_TEST_DIR/symbols/fr_custom" \
+            "$STATE_TEST_DIR/rules.xml" \
+            "$STATE_TEST_DIR/installed.version"; then
             exit 1
         fi
 
-        : > "$CONFLICT_TEST_DIR/symbols/fr_custom"
+        : > "$STATE_TEST_DIR/symbols/fr_custom"
         if check_layout_conflicts "fr_custom" \
-            "$CONFLICT_TEST_DIR/symbols/fr_custom" \
-            "$CONFLICT_TEST_DIR/rules.xml" \
-            "$CONFLICT_TEST_DIR/installed.version"; then
+            "$STATE_TEST_DIR/symbols/fr_custom" \
+            "$STATE_TEST_DIR/rules.xml" \
+            "$STATE_TEST_DIR/installed.version"; then
             exit 1
         fi
-        rm -f "$CONFLICT_TEST_DIR/symbols/fr_custom"
+        rm -f "$STATE_TEST_DIR/symbols/fr_custom"
 
         printf '<layout><name>fr_custom</name></layout>\n' \
-            > "$CONFLICT_TEST_DIR/rules.xml"
+            > "$STATE_TEST_DIR/rules.xml"
         if check_layout_conflicts "fr_custom" \
-            "$CONFLICT_TEST_DIR/symbols/fr_custom" \
-            "$CONFLICT_TEST_DIR/rules.xml" \
-            "$CONFLICT_TEST_DIR/installed.version"; then
+            "$STATE_TEST_DIR/symbols/fr_custom" \
+            "$STATE_TEST_DIR/rules.xml" \
+            "$STATE_TEST_DIR/installed.version"; then
             exit 1
         fi
 
-        : > "$CONFLICT_TEST_DIR/symbols/fr_custom"
-        : > "$CONFLICT_TEST_DIR/installed.version"
+        : > "$STATE_TEST_DIR/symbols/fr_custom"
+        : > "$STATE_TEST_DIR/installed.version"
         if ! check_layout_conflicts "fr_custom" \
-            "$CONFLICT_TEST_DIR/symbols/fr_custom" \
-            "$CONFLICT_TEST_DIR/rules.xml" \
-            "$CONFLICT_TEST_DIR/installed.version"; then
+            "$STATE_TEST_DIR/symbols/fr_custom" \
+            "$STATE_TEST_DIR/rules.xml" \
+            "$STATE_TEST_DIR/installed.version"; then
             exit 1
         fi
     ); then
+        echo "[PASS] Backups preserve first-install state across reinstalls"
+        echo "[PASS] Originally absent files retain their absent-state marker"
         echo "[PASS] Layout conflicts reject unmanaged files and allow managed reinstall"
     else
-        echo "[FAIL] Layout conflict handling"
+        echo "[FAIL] Installer state and conflict handling"
         FAILED=1
     fi
-    rm -rf "$CONFLICT_TEST_DIR"
+    rm -rf "$STATE_TEST_DIR"
 fi
 
 if [[ "$FAILED" == "1" ]]; then

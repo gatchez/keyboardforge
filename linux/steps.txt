@@ -108,6 +108,11 @@ This safely restores files from their `.bak_fr_custom` backups, resets
 Fedora/Arch to the `us` layout via localectl, and cleans up the XKB
 directories.
 
+On a managed reinstall, existing `.bak_fr_custom` backups (and the Debian
+marker for a file that was originally absent) are preserved. They continue
+to represent the state from before the first install, rather than being
+replaced with files already modified by KeyboardForge.
+
 =====================================================================
 TROUBLESHOOTING & NOTES
 =====================================================================

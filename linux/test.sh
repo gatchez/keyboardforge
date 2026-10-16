@@ -51,6 +51,7 @@ else
         cd "$STATE_TEST_DIR" || exit 1
         source "$SCRIPT_DIR/modules/common.sh"
         DRY_RUN=0
+        INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
 
         printf 'original system state\n' > managed.conf
         backup_file "$STATE_TEST_DIR/managed.conf"
@@ -64,6 +65,27 @@ else
         printf 'installed state\n' > absent.conf
         backup_file "$STATE_TEST_DIR/absent.conf"
         if [[ ! -f absent.conf.bak_fr_custom.absent || -e absent.conf.bak_fr_custom ]]; then
+            exit 1
+        fi
+
+        printf 'original user configuration\n' > user.conf
+        snapshot_state_file "$STATE_TEST_DIR/user.conf" "desktop-config"
+        printf 'changed configuration\n' > user.conf
+        snapshot_state_file "$STATE_TEST_DIR/user.conf" "desktop-config"
+        if [[ "$(cat "${INSTALL_STATE_DIR}/desktop-config")" != "original user configuration" ]]; then
+            exit 1
+        fi
+        restore_state_file "${INSTALL_STATE_DIR}/desktop-config" \
+            "$STATE_TEST_DIR/user.conf"
+        if [[ "$(cat "$STATE_TEST_DIR/user.conf")" != "original user configuration" ]]; then
+            exit 1
+        fi
+
+        snapshot_state_file "$STATE_TEST_DIR/initially-absent.conf" "absent-config"
+        : > "$STATE_TEST_DIR/initially-absent.conf"
+        restore_state_file "${INSTALL_STATE_DIR}/absent-config" \
+            "$STATE_TEST_DIR/initially-absent.conf"
+        if [[ -e "$STATE_TEST_DIR/initially-absent.conf" ]]; then
             exit 1
         fi
 
@@ -105,6 +127,7 @@ else
     ); then
         echo "[PASS] Backups preserve first-install state across reinstalls"
         echo "[PASS] Originally absent files retain their absent-state marker"
+        echo "[PASS] Saved configuration restores original contents and absence"
         echo "[PASS] Layout conflicts reject unmanaged files and allow managed reinstall"
     else
         echo "[FAIL] Installer state and conflict handling"

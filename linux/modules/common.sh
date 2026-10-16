@@ -8,6 +8,7 @@ XKB_SYMBOLS_DIR="/usr/share/X11/xkb/symbols"
 XKB_RULES_DIR="/usr/share/X11/xkb/rules"
 EVDEV_XML="${XKB_RULES_DIR}/evdev.xml"
 INSTALLED_VERSION_FILE="${XKB_SYMBOLS_DIR}/fr_custom.version"
+INSTALL_STATE_DIR="/var/lib/keyboardforge/fr_custom"
 LOCK_DIR="/tmp/fr_custom_installer.lock"
 
 mkdir -p "$LOG_DIR"
@@ -115,6 +116,184 @@ check_layout_conflicts() {
     log_error "Cannot install '$layout_name': existing ${conflict_description} is not owned by a marked KeyboardForge installation."
     log_info "No system files were changed. Resolve the conflict or remove the existing layout before retrying."
     return 1
+}
+
+snapshot_state_file() {
+    local source_file="$1"
+    local state_name="$2"
+    local snapshot="${INSTALL_STATE_DIR}/${state_name}"
+
+    if [[ -e "$snapshot" || -e "${snapshot}.absent" ]]; then
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        log_info "[DRY-RUN] Would record original state of $source_file."
+        return 0
+    fi
+
+    mkdir -p "$INSTALL_STATE_DIR" || return 1
+    if [[ -e "$source_file" ]]; then
+        cp -a "$source_file" "$snapshot" || return 1
+    else
+        : > "${snapshot}.absent" || return 1
+    fi
+}
+
+restore_state_file() {
+    local snapshot="$1"
+    local destination="$2"
+
+    if [[ -f "$snapshot" ]]; then
+        mkdir -p "$(dirname "$destination")" || return 1
+        cp -a "$snapshot" "$destination" || return 1
+        rm -f "$snapshot"
+        return
+    fi
+
+    if [[ -e "${snapshot}.absent" ]]; then
+        rm -f "$destination" "${snapshot}.absent"
+        return
+    fi
+
+    return 2
+}
+
+user_home_directory() {
+    local passwd_entry
+    passwd_entry=$(getent passwd "$1") || return 1
+    printf '%s\n' "${passwd_entry#*:*:*:*:*:}"
+    return 0
+}
+
+snapshot_desktop_state() {
+    local user="$1"
+    local desktop="$2"
+    local user_home
+    local uid
+    local dbus_address
+    local original_sources
+    local quoted_sources
+    local snapshot="${INSTALL_STATE_DIR}/gnome-input-sources"
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        log_info "[DRY-RUN] Would record original $desktop settings for $user."
+        return 0
+    fi
+
+    if [[ -f "${INSTALL_STATE_DIR}/desktop" ]]; then
+        log_info "Preserving existing desktop settings snapshot."
+        return 0
+    fi
+
+    user_home=$(user_home_directory "$user") || {
+        log_warn "Cannot determine home directory for $user; desktop settings will not be changed."
+        return 1
+    }
+    uid=$(id -u "$user") || return 1
+    dbus_address="unix:path=/run/user/${uid}/bus"
+    mkdir -p "$INSTALL_STATE_DIR" || return 1
+    chmod 700 "$INSTALL_STATE_DIR" || return 1
+
+    case "$desktop" in
+        gnome)
+            if original_sources=$(su - "$user" -c \
+                "DBUS_SESSION_BUS_ADDRESS='$dbus_address' gsettings get org.gnome.desktop.input-sources sources" \
+                2>>"$LOG_FILE"); then
+                printf '%s\n' "$original_sources" > "$snapshot" || return 1
+            else
+                : > "${snapshot}.unavailable" || return 1
+                log_warn "Could not capture GNOME input sources; GNOME input-source changes will be skipped."
+            fi
+            ;;
+        kde)
+            snapshot_state_file "${user_home}/.config/kxkbrc" "kde-kxkbrc" || {
+                rm -f "${INSTALL_STATE_DIR}/kde-kxkbrc" \
+                    "${INSTALL_STATE_DIR}/kde-kxkbrc.absent"
+                return 1
+            }
+            ;;
+        xfce)
+            snapshot_state_file \
+                "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
+                "xfce-keyboard-layout.xml" || {
+                    rm -f "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml" \
+                        "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml.absent"
+                    return 1
+                }
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    printf '%s\n' "$user" > "${INSTALL_STATE_DIR}/user" || return 1
+    printf '%s\n' "$user_home" > "${INSTALL_STATE_DIR}/home" || return 1
+    printf '%s\n' "$desktop" > "${INSTALL_STATE_DIR}/desktop" || return 1
+}
+
+restore_desktop_state() {
+    local user_file="${INSTALL_STATE_DIR}/user"
+    local home_file="${INSTALL_STATE_DIR}/home"
+    local desktop_file="${INSTALL_STATE_DIR}/desktop"
+    local user
+    local user_home
+    local desktop
+    local uid
+    local dbus_address
+    local original_sources
+    local quoted_sources
+
+    if [[ ! -f "$user_file" || ! -f "$home_file" || ! -f "$desktop_file" ]]; then
+        log_warn "No complete saved desktop-state snapshot found; desktop settings were not restored."
+        return 1
+    fi
+
+    user=$(<"$user_file")
+    user_home=$(<"$home_file")
+    desktop=$(<"$desktop_file")
+    uid=$(id -u "$user") || return 1
+    dbus_address="unix:path=/run/user/${uid}/bus"
+
+    case "$desktop" in
+        gnome)
+            if [[ -f "${INSTALL_STATE_DIR}/gnome-input-sources" ]]; then
+                original_sources=$(<"${INSTALL_STATE_DIR}/gnome-input-sources")
+                printf -v quoted_sources '%q' "$original_sources"
+                if ! su - "$user" -c \
+                    "DBUS_SESSION_BUS_ADDRESS='$dbus_address' gsettings set org.gnome.desktop.input-sources sources ${quoted_sources}" \
+                    >> "$LOG_FILE" 2>&1; then
+                    log_warn "Could not restore GNOME input sources for $user."
+                    return 1
+                fi
+                rm -f "${INSTALL_STATE_DIR}/gnome-input-sources" || return 1
+            elif [[ -f "${INSTALL_STATE_DIR}/gnome-input-sources.unavailable" ]]; then
+                log_warn "GNOME settings were not changed because their original value could not be captured."
+                rm -f "${INSTALL_STATE_DIR}/gnome-input-sources.unavailable" || return 1
+            fi
+            ;;
+        kde)
+            restore_state_file "${INSTALL_STATE_DIR}/kde-kxkbrc" \
+                "${user_home}/.config/kxkbrc" || return 1
+            if command -v qdbus >/dev/null 2>&1; then
+                su - "$user" -c \
+                    "DBUS_SESSION_BUS_ADDRESS='$dbus_address' qdbus org.kde.keyboard /Layouts reconfigure" \
+                    >> "$LOG_FILE" 2>&1 || log_warn "Could not refresh the KDE keyboard daemon."
+            fi
+            ;;
+        xfce)
+            restore_state_file "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml" \
+                "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
+                || return 1
+            ;;
+        *)
+            log_warn "Unknown saved desktop '$desktop'; desktop settings were not restored."
+            return 1
+            ;;
+    esac
+
+    rm -f "$user_file" "$home_file" "$desktop_file" || return 1
+    log_success "Restored saved $desktop settings for $user."
 }
 
 detect_actual_user() {

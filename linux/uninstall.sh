@@ -18,6 +18,12 @@ acquire_lock
 
 log_info "Starting uninstallation..."
 
+if [[ -f "${INSTALL_STATE_DIR}/desktop" ]]; then
+    restore_desktop_state || log_warn "Review desktop settings for manual restoration."
+elif [[ -d "$INSTALL_STATE_DIR" ]]; then
+    log_warn "No complete desktop-state snapshot found; review desktop settings manually."
+fi
+
 # 1. Restore evdev.xml
 if [[ -f "${EVDEV_XML}.bak_fr_custom" ]]; then
     mv "${EVDEV_XML}.bak_fr_custom" "$EVDEV_XML"
@@ -36,15 +42,9 @@ rm -f "$INSTALLED_VERSION_FILE"
 
 # 3. Restore OS-level configs
 if [[ -f /etc/debian_version ]]; then
-    if [[ -f /etc/default/keyboard.bak_fr_custom ]]; then
-        mv /etc/default/keyboard.bak_fr_custom /etc/default/keyboard
-    elif [[ -f /etc/default/keyboard.bak_fr_custom.absent ]]; then
-        # The file did not exist before install; restore that exact state.
-        rm -f /etc/default/keyboard /etc/default/keyboard.bak_fr_custom.absent
-    elif [[ -f /etc/default/keyboard ]]; then
-        sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="us"/' /etc/default/keyboard
-        sed -i 's/^XKBVARIANT=.*/XKBVARIANT=""/' /etc/default/keyboard
-    fi
+    restore_state_file "/etc/default/keyboard.bak_fr_custom" \
+        "/etc/default/keyboard" \
+        || log_warn "Could not restore /etc/default/keyboard; review it manually."
     if command -v dpkg-reconfigure >/dev/null 2>&1; then
         safe_exec "Reconfiguring xkb-data" dpkg-reconfigure -f noninteractive xkb-data
     fi
@@ -53,24 +53,27 @@ if [[ -f /etc/debian_version ]]; then
     fi
     log_success "Restored Debian system configurations."
 elif [[ -f /etc/fedora-release ]]; then
-    if command -v localectl >/dev/null 2>&1; then
-        safe_exec "Resetting localectl x11-keymap" localectl set-x11-keymap us
-        safe_exec "Resetting localectl keymap" localectl set-keymap us
-    fi
+    restore_state_file "${INSTALL_STATE_DIR}/system-x11-keyboard.conf" \
+        "/etc/X11/xorg.conf.d/00-keyboard.conf" \
+        || log_warn "Could not restore Fedora's X11 keyboard configuration; review it manually."
     if command -v dracut >/dev/null 2>&1; then
         safe_exec "Rebuilding initramfs with dracut" dracut -f
     fi
-    log_success "Reset Fedora system layout to default (us)."
+    log_success "Restored Fedora system keyboard configuration."
 elif [[ -f /etc/arch-release ]]; then
-    if command -v localectl >/dev/null 2>&1; then
-        safe_exec "Resetting localectl x11-keymap" localectl set-x11-keymap us
-    fi
+    restore_state_file "${INSTALL_STATE_DIR}/system-x11-keyboard.conf" \
+        "/etc/X11/xorg.conf.d/00-keyboard.conf" \
+        || log_warn "Could not restore Arch's X11 keyboard configuration; review it manually."
     if command -v mkinitcpio >/dev/null 2>&1; then
         safe_exec "Rebuilding initramfs with mkinitcpio" mkinitcpio -P
     fi
-    log_success "Reset Arch Linux system layout to default (us)."
+    log_success "Restored Arch system keyboard configuration."
 fi
 
 clear_xkb_cache
+if [[ -d "$INSTALL_STATE_DIR" ]]; then
+    rmdir "$INSTALL_STATE_DIR" 2>/dev/null || log_warn "Saved installer state remains at $INSTALL_STATE_DIR."
+    rmdir "$(dirname "$INSTALL_STATE_DIR")" 2>/dev/null || true
+fi
 
 log_success "Uninstallation complete. Please reboot."

@@ -75,9 +75,8 @@ What the script automates:
     without that marker must be resolved explicitly before retrying.
  2. Installs missing dependencies automatically (libxml2-utils / libxml2 /
     pacman's libxml2 + xkeyboard-config, depending on distro).
- 3. Backs up system files (`evdev.xml`, and the distro-specific keyboard
-    config: `/etc/default/keyboard` on Debian, or localectl state on
-    Fedora/Arch).
+ 3. Backs up system files (`evdev.xml`, `/etc/default/keyboard` on Debian,
+    or `/etc/X11/xorg.conf.d/00-keyboard.conf` on Fedora/Arch).
  4. Copies `fr_custom` to `/usr/share/X11/xkb/symbols/`.
  5. Validates XML structure (using `xmllint`) and injects layout rules.
  6. Configures system defaults:
@@ -105,13 +104,25 @@ If you need to revert the system to its previous state:
     sudo reboot
 
 This safely restores files from their `.bak_fr_custom` backups, resets
-Fedora/Arch to the `us` layout via localectl, and cleans up the XKB
-directories.
+the distro keyboard configuration and cleans up the XKB directories.
 
 On a managed reinstall, existing `.bak_fr_custom` backups (and the Debian
 marker for a file that was originally absent) are preserved. They continue
 to represent the state from before the first install, rather than being
 replaced with files already modified by KeyboardForge.
+
+The installer also saves the pre-install GNOME input-source value or the
+KDE/XFCE keyboard configuration file under
+`/var/lib/keyboardforge/fr_custom/`.
+Uninstall restores that saved desktop state for the user who installed the
+layout. If no state snapshot exists (for example, an older installation),
+review desktop settings manually; the uninstaller no longer assumes that
+the original layout was `us`.
+If a desktop session does not immediately reflect restored settings, log
+out and back in. GNOME restoration requires an accessible user session bus;
+KDE daemon refresh is best-effort. Check the uninstaller output for warnings
+and correct the layout manually in desktop keyboard settings if restoration
+could not be applied.
 
 =====================================================================
 TROUBLESHOOTING & NOTES

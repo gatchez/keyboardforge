@@ -1,13 +1,29 @@
+# Local project checklist
+/TODO.md
+
+# Python bytecode, test caches, and virtual environments
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
-linux/logs/*.log
-*.bak_fr_custom
+.venv/
+venv/
+
+# Python build and package artifacts
+/core/build/
+/core/dist/
+/core/*.egg-info/
+/cli/build/
+/cli/dist/
+/cli/*.egg-info/
+
+# JavaScript dependencies
 node_modules/
+
+# Installer-generated logs and backup files
+/linux/logs/*.log
+*.bak_fr_custom
+
+# Operating-system metadata
 .DS_Store
-core/dist/
-core/build/
-core/*.egg-info/
-cli/dist/
-cli/build/
-cli/*.egg-info/
+Thumbs.db
+desktop.ini

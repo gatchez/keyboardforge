@@ -143,6 +143,11 @@ detect_desktop_environment
 
 log_success "Detected User: $ACTUAL_USER | Display: $DISPLAY_SERVER | DE: $DE"
 
+if [[ "$DE" != "fallback" ]] && ! snapshot_desktop_state "$ACTUAL_USER" "$DE"; then
+    log_warn "Could not capture desktop settings; automatic desktop configuration is skipped."
+    DE="fallback"
+fi
+
 if [[ "$DISPLAY_SERVER" == "wayland" ]]; then
     log_warn "Wayland detected. Skipping setxkbmap (X11-only utility)."
 fi

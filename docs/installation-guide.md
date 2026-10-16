@@ -23,21 +23,22 @@ ahead using the table of contents below.
 
 ## 1. What KeyboardForge is, and which parts you actually need
 
-KeyboardForge lets you create and install **custom keyboard layouts** on
-Linux -- for example, remapping which character each key produces,
+KeyboardForge lets you create, edit, and export custom keyboard layouts
+for Linux -- for example, remapping which character each key produces,
 changing what Shift or AltGr do on a specific key, or starting from one of
 your operating system's own built-in layouts (its real `us`, `fr`, `de`,
-etc.) and tweaking it.
+etc.) and tweaking it. The current installer installs only the bundled
+`fr_custom`/`custom` layout.
 
 The project has four parts. **You do not need all of them** -- pick based
 on how you want to work:
 
 | Part | What it's for | Do you need it? |
 |---|---|---|
-| `linux/` | The installer that actually applies a layout to your system | **Yes, always** -- this is the only part that touches your real system |
+| `linux/` | The installer for the bundled `fr_custom`/`custom` layout | Required only if installing that layout |
 | `core/` + `cli/` | A command-line tool (`keyboardforge`) for creating/editing/validating layouts, and importing your OS's real layouts | Optional -- only if you want to script things or don't want to use the graphical editor |
 | `gui/` | A point-and-click visual layout editor that runs in your web browser | Optional -- only if you prefer clicking over typing commands |
-| `docs/`, `packaging/` | This documentation, and templates for building `.deb`/`.rpm`/Arch packages | Not required to use the software |
+| `docs/`, `packaging/` | Documentation and native-package templates (build automation is not implemented) | Not required to use the software |
 
 If you just want to try the bundled example layout with the least effort,
 read section 5 only. If you want to build your own layout starting from
@@ -47,9 +48,10 @@ your OS's real keyboard layout, read sections 6 and/or 7 as well.
 example layout, `layouts/fr_custom.json` (a customized French layout), so
 that every tool in the project has something real to load, edit, and
 install right out of the box. It is **not** the point of the project --
-it exists purely to demonstrate that the pipeline works end to end. Your
-own layouts, and layouts imported from your operating system, work
-exactly the same way through exactly the same tools.
+it exists to demonstrate the implemented pipeline. Your own layouts and
+layouts imported from your operating system can be edited and exported in
+the same way, but the installer does not yet support installing them under
+their own names.
 
 ---
 
@@ -354,16 +356,24 @@ keyboardforge new my_custom custom my_layouts/my_custom.json \
 # Set a key: AE01 is the "1" key; give it '1' unshifted, '!' shifted
 keyboardforge set-key my_layouts/my_custom.json AE01 1 exclam
 
-# Check it's valid before doing anything else with it
+# Check it's valid
 keyboardforge validate my_layouts/my_custom.json
 
-# Preview what installing it would do, without changing anything
-keyboardforge install my_layouts/my_custom.json --dry-run
-
-# Install it for real (this needs root -- keyboardforge will prompt for
-# your password via sudo automatically if you aren't already root)
-keyboardforge install my_layouts/my_custom.json
+# Export XKB files for inspection
+mkdir -p my_layouts/exported
+keyboardforge export my_layouts/my_custom.json my_layouts/exported
 ```
+
+The current installer only installs the bundled `fr_custom`/`custom`
+layout. Creating, importing, validating, and exporting another layout works,
+but it cannot yet be installed through `keyboardforge install`.
+To install the bundled example, use:
+```bash
+keyboardforge install layouts/fr_custom.json --dry-run
+keyboardforge install layouts/fr_custom.json
+```
+The real install requires root; the CLI invokes `sudo` automatically if
+needed.
 
 **Starting from your operating system's own real layout instead of a
 blank one:**
@@ -377,12 +387,14 @@ keyboardforge system-layouts fr
 # Import your system's real French layout (AZERTY variant) into JSON
 keyboardforge import-system fr my_layouts/my_french.json --variant azerty
 
-# Now edit/validate/install it exactly like any other layout
+# Edit, validate, and export it like any other layout
 keyboardforge set-key my_layouts/my_french.json AE01 1 exclam
-keyboardforge install my_layouts/my_french.json
+mkdir -p my_layouts/french-export
+keyboardforge export my_layouts/my_french.json my_layouts/french-export
 ```
 See `docs/user-guide.md` and `docs/cli-manual.md` for the full explanation
-of what "importing a system layout" does and doesn't capture.
+of what "importing a system layout" does and doesn't capture. The current
+installer does not install imported layouts under their original XKB names.
 
 ---
 
@@ -406,10 +418,9 @@ No installation needed at all.
 
 The GUI itself cannot install anything on your system (it's a static
 webpage with no access to your files beyond what you explicitly load/
-save) -- after saving, go back to section 6 and run:
-```bash
-keyboardforge install ~/Downloads/my_custom.json
-```
+save). Export the saved JSON with the CLI as described in section 6.3.
+The current installer only installs the bundled `fr_custom`/`custom`
+layout; it does not install arbitrary GUI-created layouts.
 See `docs/gui-manual.md` for the complete feature walkthrough.
 
 ---

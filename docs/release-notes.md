@@ -3,9 +3,10 @@
 **KeyboardForge** is the renamed, restructured successor to the
 "FR_CUSTOM Layout Installer Framework" prototype. This release turns that
 single-purpose Linux installer into the foundation of a larger, modular
-keyboard-layout customization framework, per the project's roadmap Phases
-1 (Foundation), 2 (Core Keyboard Engine), 3 (Linux Integration), 4 (CLI),
-5 (GUI), 6 (Packaging), and 7 (Documentation & QA).
+keyboard-layout customization framework, with implementation work through
+Phase 7 (Documentation & QA). Phase 6 (Packaging) remains partial: Python
+packages can be built, but native Linux package templates are not yet wired
+to automated package builds.
 
 ## Highlights
 
@@ -28,16 +29,18 @@ keyboard-layout customization framework, per the project's roadmap Phases
 
 ## Explicitly not in this release
 
-- **Windows support** (Phase 8) -- deferred pending explicit authorization,
-  per the project's own scope document. Not started, not stubbed beyond a
-  status note in the README.
-- Multi-layout-per-install-run management, macOS support, layout sharing /
-  community repository, themes-for-layouts (as opposed to GUI theming,
-  which is included), plugin architecture, cloud sync, keyboard analytics
-  -- all listed under the project's own "Future Scope."
+- **Windows and macOS support** -- deferred until work on the Linux module
+  is complete.
+- **Arbitrary layout installation and multi-layout management** -- the
+  current Linux installer is hard-wired to the bundled `fr_custom`/`custom`
+  layout. The core, CLI, and GUI can edit and export other layouts, but the
+  installer cannot yet install them under their own names.
+- Layout sharing/community repository, themes-for-layouts (as opposed to
+  GUI theming, which is included), plugin architecture, cloud sync, and
+  keyboard analytics are outside the current scope.
 - Automated `.deb`/`.rpm`/pacman package *building* from the templates in
-  `packaging/` (the templates/metadata exist; the build pipeline that
-  invokes `dpkg-deb`/`rpmbuild`/`makepkg` against them does not yet).
+  `packaging/` (the templates/metadata exist; build automation is not
+  implemented).
 - A GUI panel for editing a layout's own metadata (`xkb_name`, `variant`,
   etc.) after creation -- currently done via the CLI or by editing the
   downloaded JSON directly.

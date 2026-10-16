@@ -56,11 +56,12 @@ On Debian/Ubuntu: `sudo apt-get install -y xkb-data`. On Fedora:
 
 **`import-system` produced far fewer keys than I expected**
 Check whether you passed `--no-resolve-includes` -- without it (the
-default), `import-system` follows `include` chains recursively to produce
-a complete layout; with it, you only get that one variant's own locally
-defined keys, which for many real layouts (e.g. British English, German)
-is a small fraction of the total. See `docs/cli-manual.md` and
-`docs/developer-guide.md` for exactly how this works.
+default), `import-system` follows supported `include` chains recursively;
+with it, you only get that one variant's own locally defined keys, which
+for many real layouts (e.g. British English, German) is a small fraction
+of the total. Resolution is best-effort and the parser supports only a
+subset of XKB, so compare important imports with their source. See
+`docs/cli-manual.md` and `docs/developer-guide.md` for details.
 
 **`import` (not `import-system`) produced fewer keys than the source file
 seems to have**

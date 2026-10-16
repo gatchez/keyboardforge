@@ -1,9 +1,9 @@
 # FAQ
 
 **Does KeyboardForge replace my system's default keyboard layouts?**
-No. It adds a new layout (with its own `xkb_name`) alongside whatever's
-already installed. Uninstalling removes only what KeyboardForge added and
-restores your prior system configuration from backup.
+No. The current installer adds the bundled `fr_custom` layout alongside
+the system's existing layouts. Uninstalling restores backed-up system
+configuration.
 
 **Do I need the GUI, or is the CLI enough?**
 Either is enough on its own -- they operate on the same JSON layout files,
@@ -21,15 +21,16 @@ building one from nothing?**
 Yes -- this is a first-class feature, not an afterthought. Run
 `keyboardforge system-layouts` to see every layout your OS has installed,
 then `keyboardforge import-system <name> out.json --variant <variant>` to
-convert any of them (including all their variants -- AZERTY, Dvorak,
-Bepo, and so on) into a fully-populated KeyboardForge layout JSON, ready
-to customize. See `docs/cli-manual.md` and `docs/user-guide.md` section 1.
+import a variant into JSON and customize it. Include resolution is
+best-effort, and the XKB parser supports a subset of the grammar, so
+inspect the imported result for omissions. See `docs/cli-manual.md` and
+`docs/user-guide.md` section 1.
 
 **What's the difference between `keyboardforge import` and
 `keyboardforge import-system`?**
 `import-system` is for your **operating system's real, installed**
-layouts -- it knows where they live, resolves the `include` chains many
-of them rely on, and pulls in official descriptions/language metadata.
+layouts -- it knows where they live, attempts to resolve their `include`
+chains, and pulls in available descriptions/language metadata.
 `import` is a simpler, filesystem-unaware parser for a symbols file +
 rules file you hand it directly (e.g. KeyboardForge's own previously
 generated output) -- see `docs/cli-manual.md` for the full distinction.
@@ -66,13 +67,10 @@ settings -- the layout itself is still correctly installed at the system
 level either way.
 
 **Is Windows supported?**
-Not yet, and intentionally so -- see "Out of Scope (Current Release)" in
-the project's scope document. Windows work requires explicit authorization
-before it begins and will live in an isolated `windows/` component when it
-does.
+Not yet. Windows work is deferred until the Linux module is complete.
 
 **Is macOS supported?**
-Not currently; it's listed under Future Scope.
+Not yet. macOS work is deferred until the Linux module is complete.
 
 **What happens if I install, then edit the layout, then install again?**
 The installer detects the previously-installed version (via a small
@@ -80,13 +78,15 @@ version marker file) and logs whether it's reinstalling the same version or
 upgrading -- either way, it safely re-backs-up and re-injects rather than
 duplicating entries.
 
+**Can I install any layout I create or import?**
+Not yet. The core, CLI, and GUI can edit layouts and the CLI can export
+their XKB files, but `linux/install.sh` currently installs only the bundled
+`fr_custom`/`custom` layout. Passing a different layout to
+`keyboardforge install` does not make the installer install that layout.
+
 **Can I have multiple KeyboardForge layouts installed at once?**
-The current `linux/install.sh` is wired to one bundled layout
-(`fr_custom`/`rules`) per install run. Installing a second layout means
-running the installer again with different generated files in `linux/` --
-multi-layout management in a single run is tracked as future work (see
-`docs/architecture.md`'s design principles and the project roadmap's
-Future Scope, e.g. "Multiple keyboard profile management").
+Not with the current installer. It manages only the bundled
+`fr_custom`/`custom` layout per installation.
 
 **Where are the tests?**
 `core/tests/` (including real-system-data tests in

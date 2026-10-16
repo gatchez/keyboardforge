@@ -24,8 +24,12 @@ Every subcommand returns `0` on success and `1` on any error (validation
 failure, missing file, unknown layout/variant, subprocess failure). This
 makes every command chainable with `&&` in scripts, e.g.:
 ```bash
-keyboardforge validate my.json && keyboardforge install my.json --yes
+keyboardforge validate layouts/fr_custom.json && keyboardforge install layouts/fr_custom.json --yes
 ```
+
+For the current installer, the install example must be the bundled
+`layouts/fr_custom.json`; installing arbitrary layout names is not supported
+yet.
 
 ---
 
@@ -86,8 +90,8 @@ If this reports no layout data found, your system doesn't have the
 
 ## `keyboardforge import-system <xkb_name> <output.json> [--variant NAME] [--no-resolve-includes]`
 
-Convert a real, OS-installed layout into a KeyboardForge layout JSON,
-fully populated and ready to customize.
+Import a real, OS-installed layout into a KeyboardForge JSON layout,
+resolving supported `include` chains where possible.
 
 ```bash
 keyboardforge import-system fr layouts/my_french.json --variant azerty
@@ -101,17 +105,14 @@ keyboardforge import-system us layouts/my_us.json                      # uses th
 | `--rules-xml PATH` | Same as `system-layouts` |
 | `--no-resolve-includes` | See below |
 
-**About `--no-resolve-includes`:** many real system layouts define most of
-their keys not directly, but by `include`-ing another layout file (for
-example, the UK layout's "basic" variant defines only a handful of keys
-itself and pulls in the rest from the US layout). By default,
-`import-system` follows these `include` chains recursively so the
-resulting JSON is a **complete** layout -- every key the real layout
-actually produces, regardless of how many files that's spread across. Pass
+**About `--no-resolve-includes`:** many real system layouts define keys by
+`include`-ing another layout file. By default, `import-system` follows
+supported `include` chains recursively and merges the parsed keys. Include
+resolution is best-effort, and the parser does not implement the full XKB
+grammar; compare important imports with their source layouts. Pass
 `--no-resolve-includes` to instead see *only* what that one variant
-defines locally, unresolved (an advanced option -- most people should
-leave this off). See `docs/developer-guide.md` for the technical details
-of how this resolution works, including cycle protection.
+defines locally (an advanced option). See `docs/developer-guide.md` for
+the technical details of include resolution and parser limitations.
 
 ---
 
@@ -139,7 +140,7 @@ proceed if it finds errors.
 ## `keyboardforge export <layout.json> <output_dir>`
 
 Generate the XKB symbols file (named after `xkb_name`) and the `rules`
-XML stub into `output_dir`, without installing anything -- useful for
+XML stub into an existing `output_dir`, without installing anything -- useful for
 previewing the generated files, or for feeding a packaging pipeline.
 
 ```bash
@@ -186,17 +187,27 @@ added automatically if the current process isn't already root. `--dry-run`
 and `--yes` are passed straight through to `install.sh` (see
 `docs/installation-guide.md` section 5 for exactly what each step does).
 
+**Current limitation:** `install.sh` still installs the fixed
+`fr_custom`/`custom` layout. Use this command only with a layout whose
+`xkb_name` is `fr_custom` and `variant` is `custom` (for example,
+`layouts/fr_custom.json`). Other layouts can be edited and exported, but
+passing one to `install` does not make the installer install that layout.
+Do not use this command with another layout: the CLI writes generated files
+into `--linux-dir`, but the installer still consumes the fixed
+`fr_custom`/`rules` files. Support for arbitrary layout names is not
+implemented yet.
+
 ```bash
-keyboardforge install layouts/de_custom.json --dry-run   # preview, no changes
-keyboardforge install layouts/de_custom.json --yes        # for real, no confirmation prompt
+keyboardforge install layouts/fr_custom.json --dry-run  # preview first
+keyboardforge install layouts/fr_custom.json --yes      # install without prompt
 ```
 
-**Note:** this command *regenerates* `fr_custom`/`rules` (or whatever your
-layout's `xkb_name` is) inside `--linux-dir` every time it runs, even
-during `--dry-run` -- only the actual system-level installation step is
-skipped in `--dry-run` mode. If you're testing against a real checkout of
-this repository and don't want to touch its shipped `linux/fr_custom`
-file, point `--linux-dir` at a throwaway copy instead.
+**Note:** the CLI regenerates files from the supplied JSON inside
+`--linux-dir` every time it runs, even during `--dry-run`; only the
+system-level installation step is skipped. The installer itself consumes
+the fixed `fr_custom` and `rules` files. If you're testing against a real
+checkout and don't want to overwrite its shipped files, point `--linux-dir`
+at a throwaway copy instead.
 
 ## `keyboardforge uninstall [--linux-dir PATH]`
 

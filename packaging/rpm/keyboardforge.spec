@@ -6,6 +6,5 @@ BuildArch:      noarch
 Requires:       xkeyboard-config, libxml2
 
 %description
-KeyboardForge Linux keyboard layout installer. Modular, cross-platform
-(Debian, Fedora, Arch) installer for KeyboardForge keyboard layouts, with
-automatic Desktop Environment configuration and Wayland/X11 detection.
+Linux installer template for KeyboardForge's bundled fr_custom layout,
+with automatic Desktop Environment configuration and Wayland/X11 detection.

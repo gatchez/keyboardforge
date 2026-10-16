@@ -2,6 +2,16 @@
 
 ## [Unreleased] -- KeyboardForge 0.1.0
 
+### Documentation and status clarification
+- Clarified that Linux is the active implementation scope; Windows and
+  macOS work is deferred until the Linux module is complete.
+- Corrected installation guidance: the core, CLI, and GUI can edit/export
+  arbitrary layouts, but the Linux installer currently supports only the
+  bundled `fr_custom`/`custom` layout.
+- Marked native package build automation as outstanding; the existing
+  Debian, RPM, and Arch files are templates rather than ready-to-build
+  package definitions.
+
 ### Added
 - Renamed the project from "FR_CUSTOM Layout Installer Framework" to
   **KeyboardForge**, restructured as a multi-component project:
@@ -13,13 +23,11 @@
   (`core/keyboardforge_core/system_layouts.py`, CLI's `system-layouts` and
   `import-system` commands): detects every layout and variant your Linux
   distribution's `xkb-data` package advertises (via evdev.xml), and
-  imports any of them into a fully-populated KeyboardForge layout JSON --
-  including **recursively resolving `include` chains** (with cycle
-  protection), so layouts that define most of their keys via `include`
-  (e.g. the real British English and German "basic" variants) import
-  completely rather than nearly empty. Validated against genuine
-  `xkb-data` files (138 layouts, 6,600+ distinct real-world keysyms), not
-  synthetic fixtures.
+  imports selected variants into KeyboardForge JSON. Supported `include`
+  chains are resolved recursively with cycle protection. Tested against
+  genuine `xkb-data` files (138 layouts, 6,600+ distinct real-world
+  keysyms), not only synthetic fixtures; the parser remains a practical
+  subset of the XKB grammar.
 - **Multi-variant XKB parsing** (`xkb_parser.py` rewrite): real system
   symbols files commonly define dozens of variants in one file with
   comments and tab formatting the previous single-block, comment-naive

@@ -39,8 +39,8 @@ Module) maps onto this repository as follows:
              ▼                                              ▼
        ┌────────────────────────────────────────────────────────┐
        │              layouts/*.json  (Keyboard Model)             │
-       │   layouts/fr_custom.json ships as a worked EXAMPLE here --  │
-       │   it is not treated specially anywhere in the code below.     │
+       │   fr_custom is the bundled example and current installer   │
+       │   target; the model itself supports other layout names.     │
        └──────────────────────────┬───────────────────────────────────┘
                                     │
                           core/keyboardforge_core
@@ -62,14 +62,17 @@ Module) maps onto this repository as follows:
                     (Wayland or X11 aware)
 ```
 
+The diagram abstracts the generated-file handoff. In the current
+implementation, the installer consumes the fixed `fr_custom` symbols
+file and rules entry; it does not install every generated `xkb_name`.
+
 Both the CLI (`cli/`) and GUI (`gui/`) are *thin clients* over
 `core/keyboardforge_core`: they read and write the same JSON layout model,
-so a layout created in the GUI can be installed from the CLI and vice versa,
-with no duplicated logic between them. Critically, this also means a
-layout imported from your operating system's real keyboard data is
-*indistinguishable*, from this point on, from one built entirely by hand
--- the same validator, generator, installer, GUI, and CLI commands apply
-to it either way.
+with no duplicated layout logic between them. Layouts can be edited and
+exported through either workflow. The Linux installer is a separate,
+currently single-layout component: it expects the bundled `fr_custom`
+symbols file and rules entry. Arbitrary layout names are not yet supported
+by the install/uninstall scripts, even though the core can generate them.
 
 ## Why JSON as the source of truth?
 
@@ -83,14 +86,20 @@ generator/parser pair means:
   string-manipulating XKB syntax.
 - Layouts can be validated (duplicate keys, missing base level, malformed
   dead keys) *before* they ever touch a real system file.
-- Real, OS-installed layouts can be **imported completely** -- including
-  following `include` chains recursively, so a layout that's 90%
-  `include`-based (a common real-world pattern; see
-  `docs/developer-guide.md`) still comes in fully populated rather than
-  nearly empty -- satisfying "Detect installed keyboard layouts" /
-  "Import system layouts" from the functional requirements against real
-  operating-system data, not just against KeyboardForge's own example
-  layout.
+- Real, OS-installed layouts can be imported with resolvable `include`
+  chains followed recursively (see `docs/developer-guide.md`). This makes
+  the importer useful for starting a layout from real operating-system
+  data rather than only from KeyboardForge's example. The parser remains
+  a practical subset of XKB, not a complete grammar implementation.
+
+## Current platform and installation scope
+
+Linux is the current platform under development. The installer supports
+Debian/Ubuntu, Fedora, and Arch, and integrates GNOME, KDE Plasma, and
+XFCE. It currently installs only the bundled `fr_custom` layout; the
+model, CLI, and generator support editing and exporting other layout names,
+but install/uninstall support for those names is not implemented yet.
+Windows and macOS are deferred until work on the Linux module is complete.
 
 ## Coding standards
 

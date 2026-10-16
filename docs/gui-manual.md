@@ -85,7 +85,7 @@ assumption about which one you're working with. Two starting points:
 - **A layout you build from scratch:** click **New Layout**, then add keys
   one at a time.
 - **A real layout your operating system already has installed** (its
-  actual `us`, `fr`, `de`, etc. layout, fully populated): the GUI itself
+  actual `us`, `fr`, `de`, etc. layout): the GUI itself
   has no filesystem access to detect or import these directly (it's a
   static webpage), so use the CLI first:
   ```bash
@@ -101,12 +101,18 @@ specially by the GUI in any way.
 ## 6. Saving and installing
 
 The GUI only edits the JSON model -- it has no backend, so it cannot write
-to `linux/` or run the installer itself. After **Save JSON**:
+to `linux/` or run the installer itself. After **Save JSON**, you can export
+the layout's XKB files with the CLI:
 
 ```bash
 cd cli
-python3 -m keyboardforge_cli install ~/Downloads/my_custom.json
+mkdir -p ../xkb-preview
+python3 -m keyboardforge_cli export ~/Downloads/my_custom.json ../xkb-preview/
 ```
+
+The current Linux installer only installs the bundled `fr_custom`/`custom`
+layout. Saving or exporting another layout does not install it; support for
+installing arbitrary layout names is not implemented yet.
 
 ## 7. Known limitations
 
@@ -125,5 +131,5 @@ python3 -m keyboardforge_cli install ~/Downloads/my_custom.json
 - Physical keyboard geometry is fixed to the standard alphanumeric block
   (`TLDE`/`AE`/`AD`/`AC`/`AB`/`BKSL`/`LSGT`) -- modifier keys themselves
   (Shift/Ctrl/Alt remapping) and compose-key sequence configuration are not
-  yet exposed in the GUI. See `docs/architecture.md` and the project
-  roadmap's Future Scope for planned expansion.
+  yet exposed in the GUI. See `docs/architecture.md` for the current
+  platform and installation scope.

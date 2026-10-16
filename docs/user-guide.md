@@ -22,8 +22,9 @@ If you haven't installed anything yet, start with
 ## 1. Two ways to start a layout: from scratch, or from your OS
 
 KeyboardForge supports two starting points for building a layout, and
-both end up as the exact same kind of JSON file, edited and installed
-through the exact same tools:
+both end up as the same JSON model, which can be edited and exported
+through the same tools. The current Linux installer only installs the
+bundled `fr_custom`/`custom` layout; see section 5.
 
 **Starting from scratch:** build a layout with nothing predefined,
 setting only the keys you specifically want to change (`keyboardforge
@@ -33,18 +34,24 @@ simply isn't part of your layout at all.
 **Starting from a real layout already installed by your operating
 system:** your Linux distribution ships with dozens to hundreds of
 keyboard layouts as part of its `xkb-data` package -- the actual `us`,
-`fr`, `de`, `gb`, `es`, and many other real, complete layouts, each often
+`fr`, `de`, `gb`, `es`, and many other real XKB layouts, each often
 with several variants (e.g. French has `basic`, `azerty`, `bepo`,
-`dvorak`, and over a dozen more). KeyboardForge can detect what's
-available on your system and convert any of them into the JSON format,
-fully populated with every key that layout defines, ready for you to
-tweak a handful of keys rather than build an entire layout by hand:
+`dvorak`, and over a dozen more). KeyboardForge can detect the layouts
+advertised by your system and import a selected variant into JSON. The
+importer follows supported `include` chains, but its XKB parser handles a
+documented subset of the grammar; inspect imported layouts for omissions
+before relying on them as complete definitions:
 
 ```bash
 keyboardforge system-layouts              # list every layout your OS has
 keyboardforge system-layouts fr           # list French's variants specifically
 keyboardforge import-system fr my.json --variant azerty
 ```
+
+Imported keys reflect the XKB constructs the parser supports; include
+resolution is best-effort. Inspect the result for omissions before relying
+on it as a complete layout. The current installer also supports only the
+bundled `fr_custom`/`custom` layout.
 
 This is different from, and unrelated to, `keyboardforge import`, which
 parses a *KeyboardForge-generated* (or otherwise simple, single-variant)
@@ -176,6 +183,11 @@ or click **New Layout** in the GUI.
 Use the CLI (`docs/cli-manual.md`) -- every operation is one shell
 command, composable in scripts, with predictable exit codes.
 
+These workflows can edit and export arbitrary layout names. The current
+Linux installer is narrower: it installs only the bundled
+`fr_custom`/`custom` layout. A layout imported under its system name or
+created with another name cannot yet be installed through KeyboardForge.
+
 **"I have an existing hand-written or KeyboardForge-generated XKB file (not
 a full OS layout) I want to bring in":**
 ```bash
@@ -183,7 +195,7 @@ keyboardforge import my_symbols_file my_rules_file.xml imported.json
 ```
 See `docs/developer-guide.md` for exactly what subset of XKB syntax this
 understands, versus `import-system` (section 1 above) for pulling in a
-full, real, installed OS layout.
+real, installed OS layout.
 
 **"I broke my keyboard and need to revert right now":**
 ```bash
@@ -207,8 +219,8 @@ generating or installing anything.
 
 `layouts/fr_custom.json` ships with the project as a worked example --
 something every tool (CLI, GUI, tests) can load out of the box to
-demonstrate the whole pipeline end to end, from a JSON layout definition
-through to a real, installed, working keyboard layout. It is not
-special-cased anywhere in the code: everything this guide describes
-applies identically whether you're working with that example, a layout
-you built from scratch, or one imported from your operating system.
+demonstrate the JSON-to-XKB pipeline and the currently supported Linux
+installation path. The installer is still specifically wired to
+`fr_custom`/`custom`; layouts built from scratch or imported from the
+operating system can be edited and exported, but cannot yet be installed
+through the installer under their own names.

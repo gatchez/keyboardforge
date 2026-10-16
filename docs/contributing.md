@@ -7,7 +7,7 @@
   `gui/test_logic.js` / `gui/smoke_test.js`, or `tests/test_end_to_end.sh`
   for cross-component behavior).
 - Run `./tests/run_all_tests.sh` (or `make test`) before submitting -- it
-  must pass with zero failures.
+  should pass with zero failures in the supported environment.
 - Follow the coding standards in `docs/architecture.md` (Bash: `safe_exec`
   for every system call, `--dry-run` must never write to disk; Python:
   stdlib-only for `core/`, type hints on public functions; JS: no build
@@ -29,11 +29,11 @@ Include: which component, your OS/distro/DE if relevant, the exact command
 you ran, the full output, and (for the Linux installer) the relevant lines
 from `linux/logs/install.log`.
 
-## Windows support
+## Platform scope
 
-Explicitly out of scope for now and requires authorization before work
-begins -- see the project's scope document and `docs/faq.md`. Please don't
-open PRs implementing it without checking first.
+Linux is the active implementation. Windows and macOS work is deferred
+until the Linux module is complete. Keep contributions focused on the
+current Linux scope unless the project maintainers explicitly broaden it.
 
 ## Commit hygiene
 
@@ -42,3 +42,8 @@ open PRs implementing it without checking first.
 - If you touch generated files (`linux/fr_custom`, `linux/rules`), make
   sure they were regenerated via `tools/generate_layout.py` from
   `layouts/*.json`, not hand-edited -- `linux/steps.txt` says the same.
+
+The Linux installer currently supports only the bundled
+`fr_custom`/`custom` layout, even though the core, CLI, and GUI support
+other layout definitions. Do not describe arbitrary-layout installation as
+available until the Linux installer has been generalized and tested.

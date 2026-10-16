@@ -101,6 +101,26 @@ model, CLI, and generator support editing and exporting other layout names,
 but install/uninstall support for those names is not implemented yet.
 Windows and macOS are deferred until work on the Linux module is complete.
 
+### Current Linux installer support matrix
+
+The following describes the branches currently implemented, not a claim
+that every distro/desktop combination has been verified in a real session:
+
+| Area | Current implementation |
+|---|---|
+| Distribution detection | Debian/Ubuntu via `/etc/debian_version`; Fedora via `/etc/fedora-release`; Arch via `/etc/arch-release`. Other distributions use the documented manual path. |
+| Distro-level configuration | Debian/Ubuntu edits `/etc/default/keyboard`; Fedora and Arch call `localectl` for the X11 keymap. Fedora may call `dracut`; Arch calls `mkinitcpio` when available. |
+| GNOME | Attempts to set the user's input source through `gsettings`. |
+| KDE Plasma | Attempts to configure the user's layout using `kwriteconfig5` or `kwriteconfig6`. |
+| XFCE on X11 | Attempts to configure `xfconf-query` and apply the layout with `setxkbmap`. |
+| XFCE on Wayland | Not automatically configured; the user must apply the layout through desktop settings. |
+| Other/undetected desktop environments | System layout files are installed, but desktop input-source setup is manual. |
+| Display-server detection | Wayland is detected from `WAYLAND_DISPLAY` or `XDG_SESSION_TYPE`; otherwise the installer assumes X11. |
+
+The scripts do not currently validate every distro/desktop/display-server
+combination as a matrix. Those combinations remain a verification task
+under the Linux integration checklist.
+
 ## Coding standards
 
 - **Bash** (`linux/`): `#!/usr/bin/env bash`, `set -E` + `ERR` trap in entry

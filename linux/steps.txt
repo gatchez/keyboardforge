@@ -40,10 +40,13 @@ BEFORE YOU BEGIN
 1. Ensure you are executing commands from inside this folder.
 2. Root privileges (sudo) are strictly required.
 3. Supported Systems:
-   - Debian-based   (Ubuntu, Kali, Mint, Pop!_OS, etc.)
-   - Fedora-based
-   - Arch Linux      (Arch, EndeavourOS, Manjaro, and other Arch derivatives
-                       that ship /etc/arch-release and pacman)
+   - Debian/Ubuntu systems detected by /etc/debian_version
+   - Fedora systems detected by /etc/fedora-release
+   - Arch systems detected by /etc/arch-release
+
+   Other distributions, including derivatives that do not provide the
+   expected marker file, are not automatically detected; use the manual
+   installation steps for those systems.
 
 =====================================================================
 STEP 1 — MAKE SCRIPTS EXECUTABLE
@@ -78,8 +81,11 @@ What the script automates:
       - Fedora/Arch: `localectl set-x11-keymap fr_custom pc105 custom`
  6. Rebuilds system caches safely where relevant (initramfs / dracut /
     mkinitcpio -P).
- 7. Detects Wayland vs X11 and configures your Desktop Environment
-    (GNOME, KDE, or XFCE) automatically.
+ 7. Detects Wayland vs X11 and attempts desktop configuration:
+      - GNOME: gsettings input-source configuration.
+      - KDE Plasma: kwriteconfig5/6 layout configuration.
+      - XFCE on X11: xfconf-query and setxkbmap configuration.
+      - XFCE on Wayland or other/undetected desktops: manual configuration.
 
 =====================================================================
 STEP 3 — REBOOT
@@ -101,9 +107,9 @@ directories.
 =====================================================================
 TROUBLESHOOTING & NOTES
 =====================================================================
-- Wayland Users: The installer natively handles Wayland by using
-  DE-specific d-bus/gsettings/kwriteconfig commands instead of
-  `setxkbmap`. If your layout does not appear, go to your Desktop
+- Wayland Users: GNOME and KDE configuration use their desktop-specific
+  settings tools. XFCE on Wayland and other/undetected desktops require
+  manual configuration. If the layout does not appear, use your Desktop
   Settings -> Keyboard and add "French (customized by gatchez)" manually.
 - Arch Linux: The console (TTY) keymap is left untouched; only the X11
   layout is configured, since custom XKB layouts are an X11/Wayland

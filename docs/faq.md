@@ -56,15 +56,16 @@ its rules XML stub) into the JSON model, so you can start there and finish
 in KeyboardForge, or vice versa.
 
 **Does this work on Wayland?**
-Yes. The Linux installer detects Wayland vs X11 and uses DE-specific
-mechanisms (GNOME `gsettings`, KDE `kwriteconfig`, XFCE `xfconf-query`)
-rather than the X11-only `setxkbmap` when on Wayland.
+The installer detects Wayland. GNOME and KDE Plasma configuration use
+their desktop-specific settings tools; XFCE on Wayland is not automatically
+configured and requires manual setup. See the support matrix in
+`docs/architecture.md`.
 
 **Which desktop environments are supported?**
-GNOME, KDE Plasma (5 and 6), and XFCE are auto-configured. Others fall back
-to a warning telling you to add the layout manually via your DE's keyboard
-settings -- the layout itself is still correctly installed at the system
-level either way.
+The installer attempts automatic configuration for GNOME, KDE Plasma
+(through `kwriteconfig5`/`kwriteconfig6`), and XFCE on X11. XFCE on Wayland
+and other/undetected desktop environments require manual input-source
+configuration. See the support matrix in `docs/architecture.md`.
 
 **Is Windows supported?**
 Not yet. Windows work is deferred until the Linux module is complete.

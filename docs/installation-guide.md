@@ -277,10 +277,11 @@ permission, so this step ensures the scripts can actually be run.
 7. It applies distribution-specific configuration (e.g. editing
    `/etc/default/keyboard` on Debian/Ubuntu, or using `localectl` on
    Fedora/Arch).
-8. It detects whether you're running X11 or Wayland, and which Desktop
-   Environment (GNOME, KDE Plasma, or XFCE) you're using, and configures
-   the layout there too, using the correct mechanism for each (see
-   `docs/troubleshooting.md` if a step doesn't apply to your setup).
+8. It detects whether you're running X11 or Wayland, then attempts
+   desktop configuration: GNOME and KDE Plasma use their own settings
+   tools; XFCE is configured automatically on X11 only. XFCE on Wayland
+   and other/undetected desktops require manual setup. See the support
+   matrix in `docs/architecture.md` and `docs/troubleshooting.md`.
 
 You can preview all of this without changing anything on your system by
 adding `--dry-run`:

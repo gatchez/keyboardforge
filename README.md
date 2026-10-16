@@ -20,10 +20,11 @@ Layout Creator (MSKLC).
   technical name), or **edit via a scriptable CLI**, or **both** -- they
   share the exact same underlying layout files.
 - **Install the bundled `fr_custom` layout** on Debian/Ubuntu, Fedora, or
-  Arch Linux, with automatic GNOME/KDE Plasma/XFCE and Wayland/X11
-  configuration, and a tested uninstall path. The installer is still
+  Arch Linux, with attempted GNOME/KDE Plasma configuration and XFCE
+  configuration on X11, plus a tested uninstall path. XFCE on Wayland and
+  other/undetected desktops require manual setup. The installer is still
   hard-wired to this one layout; installing arbitrary layout names is not
-  supported yet.
+  supported yet. See the support matrix in `docs/architecture.md`.
 
 `layouts/fr_custom.json` (a customized French layout) ships as a working
 example so every tool above has something real to load out of the box.

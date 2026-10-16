@@ -26,6 +26,19 @@ source modules/xfce.sh
 set -E
 trap 'log_error "Unexpected failure at line $LINENO in command: $BASH_COMMAND"' ERR
 
+install_exit_handler() {
+    local status="$1"
+    trap - EXIT
+    if [[ "$status" -ne 0 && -f "${INSTALL_TRANSACTION_DIR}/active" ]]; then
+        rollback_install_transaction || status=1
+    fi
+    rm -rf "$LOCK_DIR"
+    if [[ "$status" -ne 0 ]]; then
+        log_error "Installation failed (exit $status)."
+    fi
+    exit "$status"
+}
+
 DRY_RUN=0
 SILENT=0
 LAYOUT_NAME="fr_custom"
@@ -79,6 +92,9 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 acquire_lock
+trap 'install_exit_handler $?' EXIT
+trap 'exit 130' INT TERM HUP
+recover_incomplete_installation || exit 1
 
 # --- USER PROMPT ---
 if [[ "$SILENT" == "0" && "$DRY_RUN" == "0" ]]; then
@@ -117,24 +133,7 @@ if ! check_layout_conflicts \
     exit 1
 fi
 
-install_dependencies
-
-# --- CORE FILES INSTALLATION ---
-check_writable "$XKB_SYMBOLS_DIR"
-check_version_upgrade
-
-backup_file "${XKB_SYMBOLS_DIR}/fr_custom"
-safe_exec "Copying layout file" cp "fr_custom" "${XKB_SYMBOLS_DIR}/fr_custom"
-safe_exec "Setting permissions on layout" chmod 644 "${XKB_SYMBOLS_DIR}/fr_custom"
-[[ "$DRY_RUN" == "0" ]] && echo "$VERSION" > "$INSTALLED_VERSION_FILE"
-
-backup_file "$EVDEV_XML"
-validate_and_inject_xml
-
-# --- OS-LEVEL SYSTEM CONFIGURATION ---
-if [[ "$OS" == "debian" ]]; then apply_debian_system_config; fi
-if [[ "$OS" == "fedora" ]]; then apply_fedora_system_config; fi
-if [[ "$OS" == "arch" ]];   then apply_arch_system_config;   fi
+install_dependencies || exit 1
 
 # --- DESKTOP ENVIRONMENT CONFIGURATION ---
 detect_actual_user
@@ -147,6 +146,31 @@ if [[ "$DE" != "fallback" ]] && ! snapshot_desktop_state "$ACTUAL_USER" "$DE"; t
     log_warn "Could not capture desktop settings; automatic desktop configuration is skipped."
     DE="fallback"
 fi
+
+check_writable "$XKB_SYMBOLS_DIR"
+check_version_upgrade
+if [[ "$DRY_RUN" == "0" ]]; then
+    snapshot_install_transaction "$OS" "$DE" "$ACTUAL_USER" || {
+        log_error "Could not capture installation rollback state; no installation changes were made."
+        exit 1
+    }
+fi
+
+# --- CORE FILES INSTALLATION ---
+backup_file "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
+safe_exec "Copying layout file" cp "fr_custom" "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
+safe_exec "Setting permissions on layout" chmod 644 "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
+if [[ "$DRY_RUN" == "0" ]]; then
+    printf '%s\n' "$VERSION" > "$INSTALLED_VERSION_FILE" || exit 1
+fi
+
+backup_file "$EVDEV_XML" || exit 1
+validate_and_inject_xml || exit 1
+
+# --- OS-LEVEL SYSTEM CONFIGURATION ---
+if [[ "$OS" == "debian" ]]; then apply_debian_system_config || exit 1; fi
+if [[ "$OS" == "fedora" ]]; then apply_fedora_system_config || exit 1; fi
+if [[ "$OS" == "arch" ]];   then apply_arch_system_config || exit 1; fi
 
 if [[ "$DISPLAY_SERVER" == "wayland" ]]; then
     log_warn "Wayland detected. Skipping setxkbmap (X11-only utility)."
@@ -163,4 +187,8 @@ fi
 
 clear_xkb_cache
 
+if [[ "$DRY_RUN" == "0" ]]; then
+    rm -f "${INSTALL_TRANSACTION_DIR}/active" || exit 1
+    rm -rf "$INSTALL_TRANSACTION_DIR" || log_warn "Transaction snapshots remain at ${INSTALL_TRANSACTION_DIR}."
+fi
 log_success "Installation Complete. See steps.txt for Wayland notes. Reboot recommended."

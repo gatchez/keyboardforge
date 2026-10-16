@@ -90,6 +90,13 @@ What the script automates:
       - XFCE on X11: xfconf-query and setxkbmap configuration.
       - XFCE on Wayland or other/undetected desktops: manual configuration.
 
+If a required installation step fails or the process is interrupted, the
+installer uses its transaction snapshots to restore files and settings
+changed by that attempt. If the process is terminated before rollback can
+run (for example, a power loss), the next installer run detects and rolls
+back the incomplete transaction before continuing. Dependencies installed
+by the system package manager are not automatically removed during rollback.
+
 =====================================================================
 STEP 3 — REBOOT
 =====================================================================
@@ -103,8 +110,8 @@ If you need to revert the system to its previous state:
     sudo ./uninstall.sh
     sudo reboot
 
-This safely restores files from their `.bak_fr_custom` backups, resets
-the distro keyboard configuration and cleans up the XKB directories.
+This safely restores files from their `.bak_fr_custom` backups, restores the
+saved distro keyboard configuration and cleans up the XKB directories.
 
 On a managed reinstall, existing `.bak_fr_custom` backups (and the Debian
 marker for a file that was originally absent) are preserved. They continue

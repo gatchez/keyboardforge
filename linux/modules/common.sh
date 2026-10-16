@@ -9,6 +9,7 @@ XKB_RULES_DIR="/usr/share/X11/xkb/rules"
 EVDEV_XML="${XKB_RULES_DIR}/evdev.xml"
 INSTALLED_VERSION_FILE="${XKB_SYMBOLS_DIR}/fr_custom.version"
 INSTALL_STATE_DIR="/var/lib/keyboardforge/fr_custom"
+INSTALL_TRANSACTION_DIR="${INSTALL_STATE_DIR}/transaction"
 LOCK_DIR="/tmp/fr_custom_installer.lock"
 
 mkdir -p "$LOG_DIR"
@@ -39,7 +40,7 @@ acquire_lock() {
     trap 'rm -rf "$LOCK_DIR"' EXIT
 }
 
-# --- ROBUST EXECUTION (never trips the global ERR trap on handled failures) ---
+# --- COMMAND EXECUTION ---
 safe_exec() {
     local desc="$1"
     shift
@@ -51,8 +52,8 @@ safe_exec() {
     if "$@" >> "$LOG_FILE" 2>&1; then
         return 0
     else
-        log_warn "Failed: $desc. Check $LOG_FILE for details."
-        return 0
+        log_error "Failed: $desc. Check $LOG_FILE for details."
+        return 1
     fi
 }
 
@@ -81,8 +82,160 @@ backup_file() {
             log_info "[DRY-RUN] Would back up: $file -> $backup_file"
             return 0
         fi
-        cp "$file" "$backup_file"
+        cp -a "$file" "$backup_file" || return 1
         log_success "Backup created: $backup_file"
+    fi
+}
+
+snapshot_state_file_to() {
+    local source_file="$1"
+    local state_dir="$2"
+    local state_name="$3"
+    local snapshot="${state_dir}/${state_name}"
+
+    mkdir -p "$state_dir" || return 1
+    chmod 700 "$state_dir" || return 1
+    if [[ -e "$source_file" ]]; then
+        cp -a "$source_file" "$snapshot" || return 1
+    else
+        : > "${snapshot}.absent" || return 1
+    fi
+}
+
+restore_state_file_from() {
+    local state_dir="$1"
+    local state_name="$2"
+    local destination="$3"
+    local snapshot="${state_dir}/${state_name}"
+
+    if [[ -f "$snapshot" ]]; then
+        mkdir -p "$(dirname "$destination")" || return 1
+        cp -a "$snapshot" "$destination"
+    elif [[ -e "${snapshot}.absent" ]]; then
+        rm -f "$destination"
+    else
+        return 2
+    fi
+}
+
+snapshot_install_transaction() {
+    local distro="$1"
+    local desktop="$2"
+    local user="$3"
+    local targets=(
+        "${XKB_SYMBOLS_DIR}/fr_custom:layout"
+        "${EVDEV_XML}:evdev"
+        "${INSTALLED_VERSION_FILE}:version-marker"
+        "${XKB_SYMBOLS_DIR}/fr_custom.bak_fr_custom:layout-backup"
+        "${EVDEV_XML}.bak_fr_custom:evdev-backup"
+    )
+    local target
+    local name
+    local source_file
+
+    rm -rf "$INSTALL_TRANSACTION_DIR" || return 1
+    mkdir -p "$INSTALL_TRANSACTION_DIR" || return 1
+    chmod 700 "$INSTALL_TRANSACTION_DIR" || return 1
+    chmod 700 "$INSTALL_STATE_DIR" || return 1
+
+    case "$distro" in
+        debian)
+            targets+=(
+                "/etc/default/keyboard:system-keyboard"
+                "/etc/default/keyboard.bak_fr_custom:system-keyboard-backup"
+                "/etc/default/keyboard.bak_fr_custom.absent:system-keyboard-absent-marker"
+            )
+            ;;
+        fedora|arch)
+            targets+=(
+                "/etc/X11/xorg.conf.d/00-keyboard.conf:system-x11-keyboard"
+            )
+            ;;
+    esac
+
+    for target in "${targets[@]}"; do
+        source_file="${target%:*}"
+        name="${target##*:}"
+        snapshot_state_file_to "$source_file" "$INSTALL_TRANSACTION_DIR" "$name" || return 1
+    done
+
+    if [[ "$desktop" != "fallback" ]]; then
+        snapshot_desktop_state "$user" "$desktop" "$INSTALL_TRANSACTION_DIR" || return 1
+    fi
+    : > "${INSTALL_TRANSACTION_DIR}/active" || return 1
+}
+
+rollback_install_transaction() {
+    local result=0
+
+    [[ -f "${INSTALL_TRANSACTION_DIR}/active" ]] || return 0
+    log_warn "Rolling back the incomplete installation..."
+
+    restore_state_file_from "$INSTALL_TRANSACTION_DIR" "layout" \
+        "${XKB_SYMBOLS_DIR}/fr_custom" || result=1
+    restore_state_file_from "$INSTALL_TRANSACTION_DIR" "evdev" \
+        "$EVDEV_XML" || result=1
+    restore_state_file_from "$INSTALL_TRANSACTION_DIR" "version-marker" \
+        "$INSTALLED_VERSION_FILE" || result=1
+    restore_state_file_from "$INSTALL_TRANSACTION_DIR" "layout-backup" \
+        "${XKB_SYMBOLS_DIR}/fr_custom.bak_fr_custom" || result=1
+    restore_state_file_from "$INSTALL_TRANSACTION_DIR" "evdev-backup" \
+        "${EVDEV_XML}.bak_fr_custom" || result=1
+
+    if [[ -f "${INSTALL_TRANSACTION_DIR}/system-keyboard" || \
+          -f "${INSTALL_TRANSACTION_DIR}/system-keyboard.absent" ]]; then
+        restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard" \
+            "/etc/default/keyboard" || result=1
+        restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-backup" \
+            "/etc/default/keyboard.bak_fr_custom" || result=1
+        restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-absent-marker" \
+            "/etc/default/keyboard.bak_fr_custom.absent" || result=1
+    fi
+    if [[ -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard" || \
+          -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard.absent" ]]; then
+        restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-x11-keyboard" \
+            "/etc/X11/xorg.conf.d/00-keyboard.conf" || result=1
+    fi
+
+    if [[ -f "${INSTALL_TRANSACTION_DIR}/desktop" ]]; then
+        restore_desktop_state "$INSTALL_TRANSACTION_DIR" 1 || result=1
+    fi
+
+    if [[ -f "${INSTALL_TRANSACTION_DIR}/system-keyboard" || \
+          -f "${INSTALL_TRANSACTION_DIR}/system-keyboard.absent" ]]; then
+        if command -v dpkg-reconfigure >/dev/null 2>&1; then
+            safe_exec "Reconfiguring xkb-data after rollback" \
+                dpkg-reconfigure -f noninteractive xkb-data || result=1
+        fi
+        if command -v update-initramfs >/dev/null 2>&1; then
+            safe_exec "Updating initramfs after rollback" update-initramfs -u || result=1
+        fi
+    elif [[ -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard" || \
+            -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard.absent" ]]; then
+        if command -v dracut >/dev/null 2>&1; then
+            safe_exec "Rebuilding initramfs after rollback" dracut -f || result=1
+        elif command -v mkinitcpio >/dev/null 2>&1; then
+            safe_exec "Rebuilding initramfs after rollback" mkinitcpio -P || result=1
+        fi
+    fi
+
+    if [[ "$result" == "0" ]]; then
+        rm -f "${INSTALL_TRANSACTION_DIR}/active" || return 1
+        if ! rm -rf "$INSTALL_TRANSACTION_DIR"; then
+            log_warn "Rollback completed, but transaction cleanup failed at ${INSTALL_TRANSACTION_DIR}."
+        fi
+        clear_xkb_cache
+        log_success "Incomplete installation changes were rolled back."
+    else
+        log_error "Rollback was incomplete. Recovery snapshots remain at ${INSTALL_TRANSACTION_DIR}."
+    fi
+    return "$result"
+}
+
+recover_incomplete_installation() {
+    if [[ -f "${INSTALL_TRANSACTION_DIR}/active" ]]; then
+        log_warn "An incomplete installation transaction was found."
+        rollback_install_transaction
     fi
 }
 
@@ -132,12 +285,7 @@ snapshot_state_file() {
         return 0
     fi
 
-    mkdir -p "$INSTALL_STATE_DIR" || return 1
-    if [[ -e "$source_file" ]]; then
-        cp -a "$source_file" "$snapshot" || return 1
-    else
-        : > "${snapshot}.absent" || return 1
-    fi
+    snapshot_state_file_to "$source_file" "$INSTALL_STATE_DIR" "$state_name"
 }
 
 restore_state_file() {
@@ -169,19 +317,20 @@ user_home_directory() {
 snapshot_desktop_state() {
     local user="$1"
     local desktop="$2"
+    local state_dir="${3:-$INSTALL_STATE_DIR}"
     local user_home
     local uid
     local dbus_address
     local original_sources
     local quoted_sources
-    local snapshot="${INSTALL_STATE_DIR}/gnome-input-sources"
+    local snapshot="${state_dir}/gnome-input-sources"
 
     if [[ "$DRY_RUN" == "1" ]]; then
         log_info "[DRY-RUN] Would record original $desktop settings for $user."
         return 0
     fi
 
-    if [[ -f "${INSTALL_STATE_DIR}/desktop" ]]; then
+    if [[ -f "${state_dir}/desktop" ]]; then
         log_info "Preserving existing desktop settings snapshot."
         return 0
     fi
@@ -192,8 +341,8 @@ snapshot_desktop_state() {
     }
     uid=$(id -u "$user") || return 1
     dbus_address="unix:path=/run/user/${uid}/bus"
-    mkdir -p "$INSTALL_STATE_DIR" || return 1
-    chmod 700 "$INSTALL_STATE_DIR" || return 1
+    mkdir -p "$state_dir" || return 1
+    chmod 700 "$state_dir" || return 1
 
     case "$desktop" in
         gnome)
@@ -207,18 +356,18 @@ snapshot_desktop_state() {
             fi
             ;;
         kde)
-            snapshot_state_file "${user_home}/.config/kxkbrc" "kde-kxkbrc" || {
-                rm -f "${INSTALL_STATE_DIR}/kde-kxkbrc" \
-                    "${INSTALL_STATE_DIR}/kde-kxkbrc.absent"
+            snapshot_state_file_to "${user_home}/.config/kxkbrc" "$state_dir" "kde-kxkbrc" || {
+                rm -f "${state_dir}/kde-kxkbrc" \
+                    "${state_dir}/kde-kxkbrc.absent"
                 return 1
             }
             ;;
         xfce)
-            snapshot_state_file \
+            snapshot_state_file_to \
                 "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
-                "xfce-keyboard-layout.xml" || {
-                    rm -f "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml" \
-                        "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml.absent"
+                "$state_dir" "xfce-keyboard-layout.xml" || {
+                    rm -f "${state_dir}/xfce-keyboard-layout.xml" \
+                        "${state_dir}/xfce-keyboard-layout.xml.absent"
                     return 1
                 }
             ;;
@@ -227,15 +376,17 @@ snapshot_desktop_state() {
             ;;
     esac
 
-    printf '%s\n' "$user" > "${INSTALL_STATE_DIR}/user" || return 1
-    printf '%s\n' "$user_home" > "${INSTALL_STATE_DIR}/home" || return 1
-    printf '%s\n' "$desktop" > "${INSTALL_STATE_DIR}/desktop" || return 1
+    printf '%s\n' "$user" > "${state_dir}/user" || return 1
+    printf '%s\n' "$user_home" > "${state_dir}/home" || return 1
+    printf '%s\n' "$desktop" > "${state_dir}/desktop" || return 1
 }
 
 restore_desktop_state() {
-    local user_file="${INSTALL_STATE_DIR}/user"
-    local home_file="${INSTALL_STATE_DIR}/home"
-    local desktop_file="${INSTALL_STATE_DIR}/desktop"
+    local state_dir="${1:-$INSTALL_STATE_DIR}"
+    local preserve_snapshot="${2:-0}"
+    local user_file="${state_dir}/user"
+    local home_file="${state_dir}/home"
+    local desktop_file="${state_dir}/desktop"
     local user
     local user_home
     local desktop
@@ -257,8 +408,8 @@ restore_desktop_state() {
 
     case "$desktop" in
         gnome)
-            if [[ -f "${INSTALL_STATE_DIR}/gnome-input-sources" ]]; then
-                original_sources=$(<"${INSTALL_STATE_DIR}/gnome-input-sources")
+            if [[ -f "${state_dir}/gnome-input-sources" ]]; then
+                original_sources=$(<"${state_dir}/gnome-input-sources")
                 printf -v quoted_sources '%q' "$original_sources"
                 if ! su - "$user" -c \
                     "DBUS_SESSION_BUS_ADDRESS='$dbus_address' gsettings set org.gnome.desktop.input-sources sources ${quoted_sources}" \
@@ -266,15 +417,24 @@ restore_desktop_state() {
                     log_warn "Could not restore GNOME input sources for $user."
                     return 1
                 fi
-                rm -f "${INSTALL_STATE_DIR}/gnome-input-sources" || return 1
-            elif [[ -f "${INSTALL_STATE_DIR}/gnome-input-sources.unavailable" ]]; then
+                if [[ "$preserve_snapshot" != "1" ]]; then
+                    rm -f "${state_dir}/gnome-input-sources" || return 1
+                fi
+            elif [[ -f "${state_dir}/gnome-input-sources.unavailable" ]]; then
                 log_warn "GNOME settings were not changed because their original value could not be captured."
-                rm -f "${INSTALL_STATE_DIR}/gnome-input-sources.unavailable" || return 1
+                if [[ "$preserve_snapshot" != "1" ]]; then
+                    rm -f "${state_dir}/gnome-input-sources.unavailable" || return 1
+                fi
             fi
             ;;
         kde)
-            restore_state_file "${INSTALL_STATE_DIR}/kde-kxkbrc" \
-                "${user_home}/.config/kxkbrc" || return 1
+            if [[ "$preserve_snapshot" == "1" ]]; then
+                restore_state_file_from "$state_dir" "kde-kxkbrc" \
+                    "${user_home}/.config/kxkbrc" || return 1
+            else
+                restore_state_file "${state_dir}/kde-kxkbrc" \
+                    "${user_home}/.config/kxkbrc" || return 1
+            fi
             if command -v qdbus >/dev/null 2>&1; then
                 su - "$user" -c \
                     "DBUS_SESSION_BUS_ADDRESS='$dbus_address' qdbus org.kde.keyboard /Layouts reconfigure" \
@@ -282,9 +442,15 @@ restore_desktop_state() {
             fi
             ;;
         xfce)
-            restore_state_file "${INSTALL_STATE_DIR}/xfce-keyboard-layout.xml" \
-                "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
-                || return 1
+            if [[ "$preserve_snapshot" == "1" ]]; then
+                restore_state_file_from "$state_dir" "xfce-keyboard-layout.xml" \
+                    "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
+                    || return 1
+            else
+                restore_state_file "${state_dir}/xfce-keyboard-layout.xml" \
+                    "${user_home}/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml" \
+                    || return 1
+            fi
             ;;
         *)
             log_warn "Unknown saved desktop '$desktop'; desktop settings were not restored."
@@ -292,7 +458,9 @@ restore_desktop_state() {
             ;;
     esac
 
-    rm -f "$user_file" "$home_file" "$desktop_file" || return 1
+    if [[ "$preserve_snapshot" != "1" ]]; then
+        rm -f "$user_file" "$home_file" "$desktop_file" || return 1
+    fi
     log_success "Restored saved $desktop settings for $user."
 }
 
@@ -356,7 +524,10 @@ validate_and_inject_xml() {
         fi
     fi
 
-    sed -i -e '/<layoutList>/r rules' "$EVDEV_XML"
+    sed -i -e '/<layoutList>/r rules' "$EVDEV_XML" || {
+        log_error "Failed to inject layout rules into $EVDEV_XML."
+        return 1
+    }
 
     if command -v xmllint >/dev/null 2>&1; then
         if ! xmllint --noout "$EVDEV_XML" >> "$LOG_FILE" 2>&1; then

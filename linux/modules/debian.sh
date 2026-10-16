@@ -5,8 +5,14 @@ install_dependencies() {
     if ! command -v xmllint >/dev/null 2>&1; then
         log_info "Installing missing dependency: libxml2-utils..."
         if [[ "$DRY_RUN" == "0" ]]; then
-            apt-get update -y >> "$LOG_FILE" 2>&1
-            apt-get install -y libxml2-utils >> "$LOG_FILE" 2>&1
+            apt-get update -y >> "$LOG_FILE" 2>&1 || {
+                log_error "Failed to update package metadata."
+                return 1
+            }
+            apt-get install -y libxml2-utils >> "$LOG_FILE" 2>&1 || {
+                log_error "Failed to install libxml2-utils."
+                return 1
+            }
         fi
     fi
 }
@@ -17,38 +23,38 @@ apply_debian_system_config() {
     check_writable "$default_kbd"
 
     if [[ -f "$default_kbd" ]]; then
-        backup_file "$default_kbd"
+        backup_file "$default_kbd" || return 1
     else
         log_warn "$default_kbd not found (common on minimal/container installs). It will be created."
         # Sentinel so uninstall.sh knows to remove the file entirely rather
         # than just reset its contents, restoring the original "absent" state.
         if [[ "$DRY_RUN" == "0" && ! -e "${default_kbd}.bak_fr_custom.absent" ]]; then
-            : > "${default_kbd}.bak_fr_custom.absent"
+            : > "${default_kbd}.bak_fr_custom.absent" || return 1
         fi
     fi
 
     if [[ "$DRY_RUN" == "0" ]]; then
-        [[ -f "$default_kbd" ]] || touch "$default_kbd"
+        [[ -f "$default_kbd" ]] || touch "$default_kbd" || return 1
 
         if grep -q "^XKBLAYOUT=" "$default_kbd"; then
-            sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="fr_custom"/' "$default_kbd"
+            sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="fr_custom"/' "$default_kbd" || return 1
         else
-            echo 'XKBLAYOUT="fr_custom"' >> "$default_kbd"
+            echo 'XKBLAYOUT="fr_custom"' >> "$default_kbd" || return 1
         fi
 
         if grep -q "^XKBVARIANT=" "$default_kbd"; then
-            sed -i 's/^XKBVARIANT=.*/XKBVARIANT="custom"/' "$default_kbd"
+            sed -i 's/^XKBVARIANT=.*/XKBVARIANT="custom"/' "$default_kbd" || return 1
         else
-            echo 'XKBVARIANT="custom"' >> "$default_kbd"
+            echo 'XKBVARIANT="custom"' >> "$default_kbd" || return 1
         fi
 
         if command -v dpkg-reconfigure >/dev/null 2>&1; then
-            safe_exec "Reconfiguring xkb-data" dpkg-reconfigure -f noninteractive xkb-data
+            safe_exec "Reconfiguring xkb-data" dpkg-reconfigure -f noninteractive xkb-data || return 1
         else
             log_warn "dpkg-reconfigure not found. Skipping xkb-data reconfiguration."
         fi
         if command -v update-initramfs >/dev/null 2>&1; then
-            safe_exec "Updating initramfs" update-initramfs -u
+            safe_exec "Updating initramfs" update-initramfs -u || return 1
         else
             log_warn "update-initramfs not found. Skipping initramfs update."
         fi

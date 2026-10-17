@@ -64,8 +64,10 @@ Module) maps onto this repository as follows:
 
 The diagram abstracts the generated-file handoff. The installer consumes
 the selected generated symbols file and matching rules entry, with
-`fr_custom`/`custom` as direct-script defaults. Managing multiple layouts'
-rules independently is still in progress.
+`fr_custom`/`custom` as direct-script defaults. Each generated rules block
+is marked and can be removed without restoring an outdated copy of the
+shared `evdev.xml`; independent management of all other installation state
+for multiple layouts remains in progress.
 
 Both the CLI (`cli/`) and GUI (`gui/`) are *thin clients* over
 `core/keyboardforge_core`: they read and write the same JSON layout model,

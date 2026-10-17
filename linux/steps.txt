@@ -84,11 +84,12 @@ What the script automates:
     without that marker must be resolved explicitly before retrying.
  2. Installs missing dependencies automatically (libxml2-utils / libxml2 /
     pacman's libxml2 + xkeyboard-config, depending on distro).
- 3. Backs up system files (`evdev.xml`, `/etc/default/keyboard` on Debian,
-    or `/etc/X11/xorg.conf.d/00-keyboard.conf` on Fedora/Arch).
+ 3. Saves rollback snapshots for the shared `evdev.xml` and affected system
+    configuration so a failed install can be reverted safely.
  4. Copies the selected layout's generated symbols file to
     `/usr/share/X11/xkb/symbols/<layout-name>`.
- 5. Validates XML structure (using `xmllint`) and injects layout rules.
+ 5. Validates XML structure (using `xmllint`) and registers a marked rules
+    block for the selected layout in `evdev.xml`.
  6. Configures system defaults:
       - Debian: sets `XKBLAYOUT` and `XKBVARIANT` to the selected values.
       - Fedora/Arch: passes the selected layout and variant to `localectl`.
@@ -133,8 +134,9 @@ If you need to revert the system to its previous state:
 For a non-default layout, pass the same `--layout-name` and `--variant`
 values that were used during installation.
 
-This safely restores files from their `.bak_fr_custom` backups, restores the
-saved distro keyboard configuration and cleans up the XKB directories.
+This removes only the selected layout's managed rules block, preserving
+other entries in the shared `evdev.xml`. It also restores the saved distro
+keyboard configuration and removes the selected symbols file.
 
 On a managed reinstall, existing `.bak_fr_custom` backups (and the Debian
 marker for a file that was originally absent) are preserved. They continue

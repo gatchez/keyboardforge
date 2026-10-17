@@ -358,12 +358,16 @@ check_layout_conflicts() {
     local rules_file="$3"
     local installed_marker="$4"
     local conflict_description=""
+    local rules_count=0
 
     if [[ -e "$symbols_file" ]]; then
         conflict_description="XKB symbols file '$symbols_file'"
     fi
 
-    if [[ -f "$rules_file" ]] && grep -Fq "<name>${layout_name}</name>" "$rules_file"; then
+    if [[ -f "$rules_file" ]]; then
+        rules_count=$(count_layout_rule_entries "$rules_file" "$layout_name") || return 1
+    fi
+    if [[ "$rules_count" -gt 0 ]]; then
         if [[ -n "$conflict_description" ]]; then
             conflict_description+=" and "
         fi
@@ -618,10 +622,18 @@ detect_desktop_environment() {
 
 validate_and_inject_xml() {
     check_writable "$EVDEV_XML"
+    local existing_count=0
+    local wrapped_rules
 
-    if grep -Fq "<name>${LAYOUT_NAME}</name>" "$EVDEV_XML"; then
-        log_warn "${LAYOUT_NAME} already exists in $EVDEV_XML. Skipping injection."
-        return 0
+    existing_count=$(count_layout_rule_entries "$EVDEV_XML" "$LAYOUT_NAME") || return 1
+
+    if [[ "$existing_count" -gt 0 ]]; then
+        if [[ ! -f "$INSTALLED_VERSION_FILE" ]]; then
+            log_warn "${LAYOUT_NAME} already exists in $EVDEV_XML. Skipping injection."
+            return 0
+        fi
+        log_info "Replacing the managed ${LAYOUT_NAME} rules entry."
+        remove_layout_rule_entry || return 1
     fi
 
     if [[ "$DRY_RUN" == "1" ]]; then
@@ -633,24 +645,217 @@ validate_and_inject_xml() {
         log_info "xmllint found. Validating XML format before injection..."
         if ! xmllint --noout "$EVDEV_XML" >> "$LOG_FILE" 2>&1; then
             log_error "Existing $EVDEV_XML is malformed. Aborting injection."
-            exit 1
+            return 1
         fi
     fi
 
-    sed -i -e "/<layoutList>/r ${RULES_FILE}" "$EVDEV_XML" || {
-        log_error "Failed to inject layout rules into $EVDEV_XML."
+    wrapped_rules=$(mktemp) || {
+        log_error "Could not create temporary rules content for ${LAYOUT_NAME}."
+        return 1
+    }
+    {
+        printf '    <!-- KeyboardForge managed layout %s begin -->\n' "$LAYOUT_NAME"
+        cat "$RULES_FILE"
+        printf '    <!-- KeyboardForge managed layout %s end -->\n' "$LAYOUT_NAME"
+    } > "$wrapped_rules" || {
+        rm -f "$wrapped_rules"
+        log_error "Could not prepare generated rules for ${LAYOUT_NAME}."
         return 1
     }
 
+    sed -i -e "/<layoutList>/r ${wrapped_rules}" "$EVDEV_XML"
+    local injection_status=$?
+    rm -f "$wrapped_rules"
+    if [[ "$injection_status" -ne 0 ]]; then
+        log_error "Failed to inject layout rules into $EVDEV_XML."
+        return 1
+    fi
+
+    existing_count=$(count_layout_rule_entries "$EVDEV_XML" "$LAYOUT_NAME") || return 1
+    if [[ "$existing_count" -ne 1 ]]; then
+        log_error "Expected exactly one ${LAYOUT_NAME} rules entry after injection; found $existing_count."
+        return 1
+    fi
+
     if command -v xmllint >/dev/null 2>&1; then
         if ! xmllint --noout "$EVDEV_XML" >> "$LOG_FILE" 2>&1; then
-            log_error "XML injection corrupted the file! Rolling back..."
-            mv "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" "$EVDEV_XML"
-            exit 1
+            log_error "XML injection corrupted $EVDEV_XML."
+            return 1
         fi
     fi
 
     log_success "Injected and validated layout rules in $EVDEV_XML"
+}
+
+count_layout_rule_entries() {
+    local rules_file="$1"
+    local target_layout="$2"
+
+    awk -v target="$target_layout" '
+        function finish_layout() {
+            if (layout_name == target) {
+                count++
+            }
+            in_layout = 0
+            in_config_item = 0
+            layout_name_found = 0
+            layout_name = ""
+            block = ""
+        }
+        {
+            line = $0
+            if (!in_layout && line ~ /<layout[[:space:]>]/) {
+                in_layout = 1
+                in_config_item = 0
+                layout_name_found = 0
+                layout_name = ""
+                block = ""
+            }
+            if (in_layout) {
+                block = block line ORS
+                if (!layout_name_found && line ~ /<configItem[[:space:]>]/) {
+                    in_config_item = 1
+                }
+                if (in_config_item && !layout_name_found &&
+                    line ~ /<name>/ && line ~ /<\/name>/) {
+                    value = line
+                    sub(/^.*<name>[[:space:]]*/, "", value)
+                    sub(/[[:space:]]*<\/name>.*$/, "", value)
+                    layout_name = value
+                    in_config_item = 0
+                    layout_name_found = 1
+                }
+                if (line ~ /<\/layout[[:space:]]*>/) {
+                    finish_layout()
+                }
+            }
+        }
+        END {
+            print count + 0
+        }
+    ' "$rules_file"
+}
+
+remove_layout_rule_entry() {
+    local rules_file="${1:-$EVDEV_XML}"
+    local target_layout="${2:-$LAYOUT_NAME}"
+    local entry_count
+    local temp_file
+    local rewritten_file
+    local managed_begin="<!-- KeyboardForge managed layout ${target_layout} begin -->"
+    local managed_end="<!-- KeyboardForge managed layout ${target_layout} end -->"
+
+    if [[ ! -f "$rules_file" ]]; then
+        log_warn "Cannot remove ${target_layout} rules entry: $rules_file does not exist."
+        return 0
+    fi
+
+    entry_count=$(count_layout_rule_entries "$rules_file" "$target_layout") || return 1
+    if [[ "$entry_count" -eq 0 ]]; then
+        log_info "No ${target_layout} rules entry remains in $rules_file."
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        log_info "[DRY-RUN] Would remove $entry_count ${target_layout} rules entr(y/ies) from $rules_file."
+        return 0
+    fi
+
+    check_writable "$rules_file"
+    if command -v xmllint >/dev/null 2>&1 &&
+        ! xmllint --noout "$rules_file" >> "$LOG_FILE" 2>&1; then
+        log_error "Cannot safely edit malformed XML in $rules_file."
+        return 1
+    fi
+
+    temp_file=$(mktemp "${rules_file}.keyboardforge.XXXXXX") || {
+        log_error "Could not create a temporary file beside $rules_file."
+        return 1
+    }
+    rewritten_file="${temp_file}.rewritten"
+    if ! cp -p "$rules_file" "$temp_file" ||
+        ! awk -v target="$target_layout" \
+            -v managed_begin="$managed_begin" -v managed_end="$managed_end" '
+            function flush_layout() {
+                if (layout_name != target) {
+                    printf "%s", block
+                }
+                in_layout = 0
+                in_config_item = 0
+                layout_name_found = 0
+                layout_name = ""
+                block = ""
+            }
+            {
+                line = $0
+                marker = line
+                sub(/^[[:space:]]+/, "", marker)
+                sub(/[[:space:]]+$/, "", marker)
+                if (in_managed_region) {
+                    if (marker == managed_end) {
+                        in_managed_region = 0
+                    }
+                    next
+                }
+                if (!in_layout && marker == managed_begin) {
+                    in_managed_region = 1
+                    next
+                }
+                if (!in_layout && line ~ /<layout[[:space:]>]/) {
+                    in_layout = 1
+                    in_config_item = 0
+                    layout_name_found = 0
+                    layout_name = ""
+                    block = ""
+                }
+                if (in_layout) {
+                    block = block line ORS
+                    if (!layout_name_found && line ~ /<configItem[[:space:]>]/) {
+                        in_config_item = 1
+                    }
+                    if (in_config_item && !layout_name_found &&
+                        line ~ /<name>/ && line ~ /<\/name>/) {
+                        value = line
+                        sub(/^.*<name>[[:space:]]*/, "", value)
+                        sub(/[[:space:]]*<\/name>.*$/, "", value)
+                        layout_name = value
+                        in_config_item = 0
+                        layout_name_found = 1
+                    }
+                    if (line ~ /<\/layout[[:space:]]*>/) {
+                        flush_layout()
+                    }
+                } else if (line == "<!-- " target " rules entry for evdev.xml -->") {
+                    next
+                } else {
+                    print line
+                }
+            }
+            END {
+                if (in_managed_region) {
+                    exit 2
+                }
+            }
+        ' "$rules_file" > "$rewritten_file" ||
+        ! cat "$rewritten_file" > "$temp_file"; then
+        rm -f "$temp_file" "$rewritten_file"
+        log_error "Could not remove ${target_layout} rules entries from $rules_file."
+        return 1
+    fi
+
+    if command -v xmllint >/dev/null 2>&1 &&
+        ! xmllint --noout "$temp_file" >> "$LOG_FILE" 2>&1; then
+        rm -f "$temp_file" "$rewritten_file"
+        log_error "Removing ${target_layout} produced malformed XML; leaving $rules_file unchanged."
+        return 1
+    fi
+    if ! mv -f "$temp_file" "$rules_file"; then
+        rm -f "$temp_file" "$rewritten_file"
+        log_error "Could not replace $rules_file after removing ${target_layout}."
+        return 1
+    fi
+    rm -f "$rewritten_file"
+    log_success "Removed $entry_count ${target_layout} rules entr(y/ies) from $rules_file."
 }
 
 clear_xkb_cache() {
@@ -669,7 +874,8 @@ check_version_upgrade() {
         else
             log_info "Upgrading from v$CURRENT_VER to v$VERSION..."
         fi
-    elif grep -Fq "<name>${LAYOUT_NAME}</name>" "$EVDEV_XML" 2>/dev/null; then
+    elif [[ -f "$EVDEV_XML" ]] &&
+        [[ "$(count_layout_rule_entries "$EVDEV_XML" "$LAYOUT_NAME")" -gt 0 ]]; then
         log_info "Legacy layout version detected. Upgrading to v$VERSION..."
     fi
 }

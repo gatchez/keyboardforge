@@ -178,7 +178,6 @@ if [[ "$DRY_RUN" == "0" ]]; then
     printf '%s\n' "$VERSION" > "$INSTALLED_VERSION_FILE" || exit 1
 fi
 
-backup_file "$EVDEV_XML" || exit 1
 validate_and_inject_xml || exit 1
 
 # --- OS-LEVEL SYSTEM CONFIGURATION ---

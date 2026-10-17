@@ -369,12 +369,81 @@ else
         fi
 
         printf '<name>fr_custom</name>\n' > rules
-        printf '<root><layoutList>\n</layoutList></root>\n' > "$EVDEV_XML"
+        cat > "$EVDEV_XML" <<'EOF'
+<root>
+  <layoutList>
+    <layout>
+      <configItem>
+        <name>us</name>
+        <shortDescription>us</shortDescription>
+        <description>English (US)</description>
+      </configItem>
+    </layout>
+  </layoutList>
+</root>
+EOF
+        cp "$EVDEV_XML" "$STATE_TEST_DIR/original-evdev.xml"
         validate_and_inject_xml
         validate_and_inject_xml
-        if [[ "$(grep -o '<name>fr_custom</name>' "$EVDEV_XML" | wc -l)" -ne 1 ]]; then
+        if [[ "$(count_layout_rule_entries "$EVDEV_XML" fr_custom)" -ne 1 ||
+              "$(count_layout_rule_entries "$EVDEV_XML" us)" -ne 1 ||
+              "$(count_layout_rule_entries "$EVDEV_XML" custom)" -ne 0 ]]; then
             exit 1
         fi
+        remove_layout_rule_entry
+        cmp -s "$STATE_TEST_DIR/original-evdev.xml" "$EVDEV_XML" || {
+            diff -u "$STATE_TEST_DIR/original-evdev.xml" "$EVDEV_XML"
+            exit 1
+        }
+        if [[ "$(count_layout_rule_entries "$EVDEV_XML" fr_custom)" -ne 0 ||
+              "$(count_layout_rule_entries "$EVDEV_XML" us)" -ne 1 ||
+              "$(grep -c 'KeyboardForge managed layout fr_custom' "$EVDEV_XML")" -ne 0 ||
+              ! -f "$EVDEV_XML" ]]; then
+            exit 1
+        fi
+        remove_layout_rule_entry
+        if [[ "$(count_layout_rule_entries "$EVDEV_XML" us)" -ne 1 ]]; then
+            exit 1
+        fi
+
+        mkdir -p "$STATE_TEST_DIR/markers"
+        RULES_FILE="$SCRIPT_DIR/rules"
+        set_layout_context "fr_custom" "custom" || exit 1
+        INSTALLED_VERSION_FILE="$STATE_TEST_DIR/markers/fr_custom.version"
+        : > "$INSTALLED_VERSION_FILE"
+        validate_and_inject_xml || exit 1
+        validate_and_inject_xml || exit 1
+        if [[ "$(count_layout_rule_entries "$EVDEV_XML" fr_custom)" -ne 1 ]]; then
+            exit 1
+        fi
+
+        cat > "$STATE_TEST_DIR/other-rules" <<'EOF'
+<layout>
+  <configItem>
+    <name>other_layout</name>
+    <shortDescription>other</shortDescription>
+    <description>Other layout</description>
+  </configItem>
+</layout>
+EOF
+        set_layout_context "other_layout" "international" || exit 1
+        INSTALLED_VERSION_FILE="$STATE_TEST_DIR/markers/other_layout.version"
+        RULES_FILE="$STATE_TEST_DIR/other-rules"
+        : > "$INSTALLED_VERSION_FILE"
+        validate_and_inject_xml || exit 1
+        remove_layout_rule_entry || exit 1
+        if [[ "$(count_layout_rule_entries "$EVDEV_XML" other_layout)" -ne 0 ||
+              "$(count_layout_rule_entries "$EVDEV_XML" fr_custom)" -ne 1 ||
+              "$(count_layout_rule_entries "$EVDEV_XML" us)" -ne 1 ]]; then
+            exit 1
+        fi
+        set_layout_context "fr_custom" "custom" || exit 1
+        INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
+        INSTALL_TRANSACTION_DIR="$STATE_TEST_DIR/transaction"
+        INSTALLED_VERSION_FILE="$XKB_SYMBOLS_DIR/fr_custom.version"
+        remove_layout_rule_entry || exit 1
+        cmp -s "$STATE_TEST_DIR/original-evdev.xml" "$EVDEV_XML" || exit 1
+        RULES_FILE="$SCRIPT_DIR/rules"
 
         : > "$XKB_SYMBOLS_DIR/fr_custom"
         : > "$INSTALLED_VERSION_FILE"
@@ -423,8 +492,19 @@ else
         fi
         rm -f "$STATE_TEST_DIR/symbols/fr_custom"
 
-        printf '<layout><name>fr_custom</name></layout>\n' \
-            > "$STATE_TEST_DIR/rules.xml"
+        cat > "$STATE_TEST_DIR/rules.xml" <<'EOF'
+<root>
+  <layoutList>
+    <layout>
+      <configItem>
+        <name>fr_custom</name>
+        <shortDescription>fc</shortDescription>
+        <description>French custom</description>
+      </configItem>
+    </layout>
+  </layoutList>
+</root>
+EOF
         if check_layout_conflicts "fr_custom" \
             "$STATE_TEST_DIR/symbols/fr_custom" \
             "$STATE_TEST_DIR/rules.xml" \
@@ -449,7 +529,7 @@ else
         echo "[PASS] GNOME, KDE, and XFCE settings restore to their captured state"
         echo "[PASS] Incomplete install transactions restore original files"
         echo "[PASS] Repeated recovery is a safe no-op after successful recovery"
-        echo "[PASS] Repeated XKB rule registration does not duplicate entries"
+        echo "[PASS] XKB rules registration is idempotent and uninstall preserves unrelated layouts"
         echo "[PASS] Uninstall detects both installed state and already-removed state"
         echo "[PASS] Required command failures are returned to the installer"
         echo "[PASS] Optional desktop outcomes are reported distinctly"

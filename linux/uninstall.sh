@@ -48,21 +48,19 @@ if ! layout_installation_present; then
     exit 0
 fi
 
+remove_layout_rule_entry || exit 1
+rm -f "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" || {
+    log_error "Could not remove the obsolete full-file backup for $EVDEV_XML."
+    exit 1
+}
+
 if [[ -f "${INSTALL_STATE_DIR}/desktop" ]]; then
     restore_desktop_state || log_warn "Review desktop settings for manual restoration."
 elif [[ -d "$INSTALL_STATE_DIR" ]]; then
     log_warn "No complete desktop-state snapshot found; review desktop settings manually."
 fi
 
-# 1. Restore evdev.xml
-if [[ -f "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" ]]; then
-    mv "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" "$EVDEV_XML"
-    log_success "Restored $EVDEV_XML from backup."
-else
-    log_warn "No backup found for evdev.xml. You may need to manually remove the ${LAYOUT_NAME} <layout> entry."
-fi
-
-# 2. Remove symbols file
+# 1. Remove symbols file
 if [[ -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" ]]; then
     rm -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}"
     rm -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}${LAYOUT_BACKUP_SUFFIX}"

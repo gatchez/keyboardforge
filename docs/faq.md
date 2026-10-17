@@ -1,9 +1,8 @@
 # FAQ
 
 **Does KeyboardForge replace my system's default keyboard layouts?**
-No. The current installer adds the bundled `fr_custom` layout alongside
-the system's existing layouts. Uninstalling restores backed-up system
-configuration.
+No. The installer adds the selected layout alongside the system's existing
+layouts. Uninstalling restores backed-up system configuration.
 
 **Do I need the GUI, or is the CLI enough?**
 Either is enough on its own -- they operate on the same JSON layout files,
@@ -80,14 +79,15 @@ upgrading -- either way, it safely re-backs-up and re-injects rather than
 duplicating entries.
 
 **Can I install any layout I create or import?**
-Not yet. The core, CLI, and GUI can edit layouts and the CLI can export
-their XKB files, but `linux/install.sh` currently installs only the bundled
-`fr_custom`/`custom` layout. Passing a different layout to
-`keyboardforge install` does not make the installer install that layout.
+Yes. `keyboardforge install <layout.json>` generates and installs the
+layout's own XKB symbols and variant, provided it passes validation and the
+target name does not conflict with an unmanaged system layout. Direct
+`linux/install.sh` use still defaults to `fr_custom`/`custom`; use
+`--layout-name` and `--variant` for a different generated layout.
 
 **Can I have multiple KeyboardForge layouts installed at once?**
-Not with the current installer. It manages only the bundled
-`fr_custom`/`custom` layout per installation.
+Not safely yet. Independent registration and removal of each layout in the
+shared system rules file is still in progress.
 
 **Where are the tests?**
 `core/tests/` (including real-system-data tests in

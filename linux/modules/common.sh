@@ -2,20 +2,45 @@
 # File: modules/common.sh
 
 VERSION=$(cat "$(dirname "${BASH_SOURCE[0]}")/../VERSION" 2>/dev/null || echo "1.2.0")
+LINUX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="logs"
 LOG_FILE="${LOG_DIR}/install.log"
 XKB_SYMBOLS_DIR="/usr/share/X11/xkb/symbols"
 XKB_RULES_DIR="/usr/share/X11/xkb/rules"
 EVDEV_XML="${XKB_RULES_DIR}/evdev.xml"
-INSTALLED_VERSION_FILE="${XKB_SYMBOLS_DIR}/fr_custom.version"
-INSTALL_STATE_DIR="/var/lib/keyboardforge/fr_custom"
-INSTALL_TRANSACTION_DIR="${INSTALL_STATE_DIR}/transaction"
 DEBIAN_KEYBOARD_FILE="/etc/default/keyboard"
 SYSTEM_X11_KEYBOARD_FILE="/etc/X11/xorg.conf.d/00-keyboard.conf"
-LOCK_DIR="/tmp/fr_custom_installer.lock"
+LOCK_DIR="/tmp/keyboardforge_xkb_installer.lock"
 INTEGRATION_RESULT="pending"
 INTEGRATION_DETAIL=""
 DRY_RUN="${DRY_RUN:-0}"
+LAYOUT_NAME="fr_custom"
+LAYOUT_VARIANT="custom"
+
+set_layout_context() {
+    local layout_name="${1:-fr_custom}"
+    local layout_variant="${2:-custom}"
+
+    if [[ ! "$layout_name" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then
+        log_error "Invalid XKB layout name '$layout_name'."
+        return 1
+    fi
+    if [[ ! "$layout_variant" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then
+        log_error "Invalid XKB variant '$layout_variant'."
+        return 1
+    fi
+
+    LAYOUT_NAME="$layout_name"
+    LAYOUT_VARIANT="$layout_variant"
+    LAYOUT_SYMBOLS_FILE="${LINUX_DIR}/${LAYOUT_NAME}"
+    RULES_FILE="${LINUX_DIR}/rules"
+    LAYOUT_BACKUP_SUFFIX=".bak_${LAYOUT_NAME}"
+    INSTALLED_VERSION_FILE="${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}.version"
+    INSTALL_STATE_DIR="/var/lib/keyboardforge/${LAYOUT_NAME}"
+    INSTALL_TRANSACTION_DIR="${INSTALL_STATE_DIR}/transaction"
+}
+
+set_layout_context "$LAYOUT_NAME" "$LAYOUT_VARIANT" || return 1
 
 # --- LOGGING ENGINE (timestamped file, clean console) ---
 log_msg() {
@@ -148,7 +173,7 @@ check_writable() {
 
 backup_file() {
     local file=$1
-    local backup_file="${file}.bak_fr_custom"
+    local backup_file="${file}${LAYOUT_BACKUP_SUFFIX}"
     local absent_marker="${backup_file}.absent"
 
     if [[ -f "$file" ]]; then
@@ -201,11 +226,11 @@ snapshot_install_transaction() {
     local desktop="$2"
     local user="$3"
     local targets=(
-        "${XKB_SYMBOLS_DIR}/fr_custom:layout"
+        "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}:layout"
         "${EVDEV_XML}:evdev"
         "${INSTALLED_VERSION_FILE}:version-marker"
-        "${XKB_SYMBOLS_DIR}/fr_custom.bak_fr_custom:layout-backup"
-        "${EVDEV_XML}.bak_fr_custom:evdev-backup"
+        "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}${LAYOUT_BACKUP_SUFFIX}:layout-backup"
+        "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}:evdev-backup"
     )
     local target
     local name
@@ -220,8 +245,8 @@ snapshot_install_transaction() {
         debian)
             targets+=(
                 "${DEBIAN_KEYBOARD_FILE}:system-keyboard"
-                "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom:system-keyboard-backup"
-                "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent:system-keyboard-absent-marker"
+                "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}:system-keyboard-backup"
+                "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}.absent:system-keyboard-absent-marker"
             )
             ;;
         fedora|arch)
@@ -250,24 +275,24 @@ rollback_install_transaction() {
     log_warn "Rolling back the incomplete installation..."
 
     restore_state_file_from "$INSTALL_TRANSACTION_DIR" "layout" \
-        "${XKB_SYMBOLS_DIR}/fr_custom" || result=1
+        "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" || result=1
     restore_state_file_from "$INSTALL_TRANSACTION_DIR" "evdev" \
         "$EVDEV_XML" || result=1
     restore_state_file_from "$INSTALL_TRANSACTION_DIR" "version-marker" \
         "$INSTALLED_VERSION_FILE" || result=1
     restore_state_file_from "$INSTALL_TRANSACTION_DIR" "layout-backup" \
-        "${XKB_SYMBOLS_DIR}/fr_custom.bak_fr_custom" || result=1
+        "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}${LAYOUT_BACKUP_SUFFIX}" || result=1
     restore_state_file_from "$INSTALL_TRANSACTION_DIR" "evdev-backup" \
-        "${EVDEV_XML}.bak_fr_custom" || result=1
+        "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" || result=1
 
     if [[ -f "${INSTALL_TRANSACTION_DIR}/system-keyboard" || \
           -f "${INSTALL_TRANSACTION_DIR}/system-keyboard.absent" ]]; then
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard" \
             "$DEBIAN_KEYBOARD_FILE" || result=1
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-backup" \
-            "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" || result=1
+            "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}" || result=1
         restore_state_file_from "$INSTALL_TRANSACTION_DIR" "system-keyboard-absent-marker" \
-            "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent" || result=1
+            "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}.absent" || result=1
     fi
     if [[ -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard" || \
           -f "${INSTALL_TRANSACTION_DIR}/system-x11-keyboard.absent" ]]; then
@@ -318,11 +343,11 @@ recover_incomplete_installation() {
 }
 
 layout_installation_present() {
-    [[ -e "${XKB_SYMBOLS_DIR}/fr_custom" ||
+    [[ -e "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" ||
        -e "$INSTALLED_VERSION_FILE" ||
-       -e "${EVDEV_XML}.bak_fr_custom" ||
-       -e "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" ||
-       -e "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom.absent" ||
+       -e "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" ||
+       -e "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}" ||
+       -e "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}.absent" ||
        ( -d "$INSTALL_STATE_DIR" &&
          -n "$(find "$INSTALL_STATE_DIR" -mindepth 1 -print -quit 2>/dev/null)" ) ]]
 }
@@ -594,8 +619,8 @@ detect_desktop_environment() {
 validate_and_inject_xml() {
     check_writable "$EVDEV_XML"
 
-    if grep -q "<name>fr_custom</name>" "$EVDEV_XML"; then
-        log_warn "fr_custom already exists in $EVDEV_XML. Skipping injection."
+    if grep -Fq "<name>${LAYOUT_NAME}</name>" "$EVDEV_XML"; then
+        log_warn "${LAYOUT_NAME} already exists in $EVDEV_XML. Skipping injection."
         return 0
     fi
 
@@ -612,7 +637,7 @@ validate_and_inject_xml() {
         fi
     fi
 
-    sed -i -e '/<layoutList>/r rules' "$EVDEV_XML" || {
+    sed -i -e "/<layoutList>/r ${RULES_FILE}" "$EVDEV_XML" || {
         log_error "Failed to inject layout rules into $EVDEV_XML."
         return 1
     }
@@ -620,7 +645,7 @@ validate_and_inject_xml() {
     if command -v xmllint >/dev/null 2>&1; then
         if ! xmllint --noout "$EVDEV_XML" >> "$LOG_FILE" 2>&1; then
             log_error "XML injection corrupted the file! Rolling back..."
-            mv "${EVDEV_XML}.bak_fr_custom" "$EVDEV_XML"
+            mv "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" "$EVDEV_XML"
             exit 1
         fi
     fi
@@ -644,7 +669,7 @@ check_version_upgrade() {
         else
             log_info "Upgrading from v$CURRENT_VER to v$VERSION..."
         fi
-    elif grep -q "<name>fr_custom</name>" "$EVDEV_XML" 2>/dev/null; then
+    elif grep -Fq "<name>${LAYOUT_NAME}</name>" "$EVDEV_XML" 2>/dev/null; then
         log_info "Legacy layout version detected. Upgrading to v$VERSION..."
     fi
 }

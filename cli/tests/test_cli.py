@@ -109,30 +109,73 @@ def test_list_empty_directory(tmp_path, capsys):
     assert "No layout JSON files found" in captured.out
 
 
-def test_install_rejects_unsupported_layout_without_generating(
-    tmp_path, monkeypatch, capsys
+def test_install_generates_and_passes_arbitrary_layout_to_installer(
+    tmp_path, monkeypatch
 ):
     import keyboardforge_cli.cli as cli
 
     layout_path = tmp_path / "other.json"
-    run(["new", "other_layout", "custom", str(layout_path), "--description", "Other"])
+    run(["new", "other_layout", "international", str(layout_path), "--description", "Other"])
     run(["set-key", str(layout_path), "AE01", "1"])
     output_dir = tmp_path / "linux"
     output_dir.mkdir()
     (output_dir / "install.sh").write_text("placeholder")
 
-    def unexpected_generate(*args, **kwargs):
-        pytest.fail("unsupported layouts must be rejected before generation")
+    calls = []
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
 
-    monkeypatch.setattr(cli, "generate", unexpected_generate)
+    def fake_run(command, cwd):
+        calls.append((command, cwd))
+        return cli.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
     rc = run(["install", str(layout_path), "--linux-dir", str(output_dir)])
 
-    assert rc == 1
-    assert (
-        "currently supports only the 'fr_custom' layout"
-        in capsys.readouterr().err
+    assert rc == 0
+    assert (output_dir / "other_layout").exists()
+    assert (output_dir / "rules").read_text().find("<name>other_layout</name>") >= 0
+    assert calls == [(
+        [
+            str(output_dir / "install.sh"),
+            "--layout-name", "other_layout",
+            "--variant", "international",
+        ],
+        str(output_dir),
+    )]
+
+
+def test_uninstall_passes_selected_layout_to_installer(tmp_path, monkeypatch):
+    import keyboardforge_cli.cli as cli
+
+    linux_dir = tmp_path / "linux"
+    linux_dir.mkdir()
+    uninstall_script = linux_dir / "uninstall.sh"
+    uninstall_script.write_text("placeholder")
+    calls = []
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda command, cwd: (
+            calls.append((command, cwd))
+            or cli.subprocess.CompletedProcess(command, 0)
+        ),
     )
-    assert list(output_dir.iterdir()) == [output_dir / "install.sh"]
+
+    rc = run([
+        "uninstall", "--linux-dir", str(linux_dir),
+        "--layout-name", "other_layout", "--variant", "international",
+    ])
+
+    assert rc == 0
+    assert calls == [(
+        [
+            str(uninstall_script),
+            "--layout-name", "other_layout",
+            "--variant", "international",
+        ],
+        str(linux_dir),
+    )]
 
 
 def test_install_passes_layout_name_and_variant_to_installer(tmp_path, monkeypatch):
@@ -278,8 +321,8 @@ def test_cli_install_dry_run_against_real_linux_dir(tmp_path):
     if os.path.isfile(evdev_xml):
         before_hash = hashlib.md5(open(evdev_xml, "rb").read()).hexdigest()
 
-    layout_path = tmp_path / "fr_custom.json"
-    run(["new", "fr_custom", "custom", str(layout_path), "--description", "Test", "--language", "fra"])
+    layout_path = tmp_path / "dryrun_layout.json"
+    run(["new", "dryrun_layout", "international", str(layout_path), "--description", "Test", "--language", "fra"])
     run(["set-key", str(layout_path), "AE01", "1", "ampersand"])
 
     rc = run(["install", str(layout_path), "--linux-dir", str(linux_copy), "--dry-run", "--yes"])

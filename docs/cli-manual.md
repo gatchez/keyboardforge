@@ -27,9 +27,8 @@ makes every command chainable with `&&` in scripts, e.g.:
 keyboardforge validate layouts/fr_custom.json && keyboardforge install layouts/fr_custom.json --yes
 ```
 
-For the current installer, the install example must be the bundled
-`layouts/fr_custom.json`; installing arbitrary layout names is not supported
-yet.
+The install command accepts any valid generated layout. Multiple layouts
+are not yet independently managed in the shared system rules file.
 
 ---
 
@@ -187,21 +186,25 @@ added automatically if the current process isn't already root. `--dry-run`
 and `--yes` are passed straight through to `install.sh` (see
 `docs/installation-guide.md` section 5 for exactly what each step does).
 
-**Current limitation:** `install.sh` still installs the fixed
-`fr_custom`/`custom` layout. Use this command only with a layout whose
-`xkb_name` is `fr_custom` and `variant` is `custom` (for example,
-`layouts/fr_custom.json`). Other layouts can be edited and exported, but
-passing one to `install` does not make the installer install that layout.
-Do not use this command with another layout: the CLI writes generated files
-into `--linux-dir`, but the installer still consumes the fixed
-`fr_custom`/`rules` files. Support for arbitrary layout names is not
-implemented yet.
+`keyboardforge install` generates and installs the layout named by the JSON
+file, using its `xkb_name` and `variant`. Valid names must start with a
+letter and contain only letters, digits, and underscores. The CLI writes
+the generated symbols file and `rules` stub into `--linux-dir`; the installer
+uses those files to configure the selected layout.
 
 The CLI passes the JSON layout's `xkb_name` and `variant` to `install.sh`
 using `--layout-name NAME --variant NAME`. Direct calls to `install.sh`
-may omit these options and default to `fr_custom/custom`. The installer
-currently rejects any other pair rather than silently installing the
-bundled layout in its place.
+may omit these options and default to `fr_custom/custom`. The uninstaller
+accepts the same flags and defaults, so pass the installed layout identity
+to remove a non-default layout:
+
+```bash
+keyboardforge uninstall --layout-name my_layout --variant international
+```
+
+Multiple layouts are not yet independently managed in the shared system
+rules file. Until that work is complete, avoid keeping multiple
+KeyboardForge-installed layouts active at the same time.
 
 Before installing, the script checks whether the target XKB symbols file
 or layout-name entry already exists. If either exists without the
@@ -218,8 +221,7 @@ keyboardforge install layouts/fr_custom.json --yes      # install without prompt
 
 **Note:** the CLI regenerates files from the supplied JSON inside
 `--linux-dir` every time it runs, even during `--dry-run`; only the
-system-level installation step is skipped. The installer itself consumes
-the fixed `fr_custom` and `rules` files. If you're testing against a real
+system-level installation step is skipped. If you're testing against a real
 checkout and don't want to overwrite its shipped files, point `--linux-dir`
 at a throwaway copy instead.
 

@@ -31,10 +31,10 @@ to automated package builds.
 
 - **Windows and macOS support** -- deferred until work on the Linux module
   is complete.
-- **Arbitrary layout installation and multi-layout management** -- the
-  current Linux installer is hard-wired to the bundled `fr_custom`/`custom`
-  layout. The core, CLI, and GUI can edit and export other layouts, but the
-  installer cannot yet install them under their own names.
+- **Independent multi-layout management** -- generated layouts can be
+  installed by their own names, but registering/removing multiple
+  KeyboardForge entries without disturbing other layouts is not yet
+  implemented.
 - Layout sharing/community repository, themes-for-layouts (as opposed to
   GUI theming, which is included), plugin architecture, cloud sync, and
   keyboard analytics are outside the current scope.

@@ -110,9 +110,10 @@ mkdir -p ../xkb-preview
 python3 -m keyboardforge_cli export ~/Downloads/my_custom.json ../xkb-preview/
 ```
 
-The current Linux installer only installs the bundled `fr_custom`/`custom`
-layout. Saving or exporting another layout does not install it; support for
-installing arbitrary layout names is not implemented yet.
+The GUI does not install layouts itself. After saving its JSON, use
+`keyboardforge install <layout.json>` to generate and install that layout.
+Independent management of multiple KeyboardForge layouts is not yet
+supported; see `docs/cli-manual.md`.
 
 ## 7. Known limitations
 

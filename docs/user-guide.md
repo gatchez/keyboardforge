@@ -23,8 +23,8 @@ If you haven't installed anything yet, start with
 
 KeyboardForge supports two starting points for building a layout, and
 both end up as the same JSON model, which can be edited and exported
-through the same tools. The current Linux installer only installs the
-bundled `fr_custom`/`custom` layout; see section 5.
+through the same tools. Any valid generated layout can be installed with
+the CLI; simultaneous multi-layout management remains in progress.
 
 **Starting from scratch:** build a layout with nothing predefined,
 setting only the keys you specifically want to change (`keyboardforge
@@ -50,8 +50,7 @@ keyboardforge import-system fr my.json --variant azerty
 
 Imported keys reflect the XKB constructs the parser supports; include
 resolution is best-effort. Inspect the result for omissions before relying
-on it as a complete layout. The current installer also supports only the
-bundled `fr_custom`/`custom` layout.
+on it as a complete layout.
 
 This is different from, and unrelated to, `keyboardforge import`, which
 parses a *KeyboardForge-generated* (or otherwise simple, single-variant)
@@ -183,10 +182,10 @@ or click **New Layout** in the GUI.
 Use the CLI (`docs/cli-manual.md`) -- every operation is one shell
 command, composable in scripts, with predictable exit codes.
 
-These workflows can edit and export arbitrary layout names. The current
-Linux installer is narrower: it installs only the bundled
-`fr_custom`/`custom` layout. A layout imported under its system name or
-created with another name cannot yet be installed through KeyboardForge.
+These workflows can edit and export arbitrary layout names. Install a
+validated generated layout with `keyboardforge install <layout.json>`.
+Pass `--layout-name` and `--variant` when directly invoking the installer;
+otherwise it defaults to `fr_custom`/`custom`.
 
 **"I have an existing hand-written or KeyboardForge-generated XKB file (not
 a full OS layout) I want to bring in":**
@@ -202,8 +201,9 @@ real, installed OS layout.
 cd linux && sudo ./uninstall.sh && sudo reboot
 ```
 This works independently of everything else in the project -- it only
-needs the `.bak_fr_custom` backups the installer already made, and does
-not require Python, Node, or anything from `core/`/`cli/`/`gui/`.
+needs the layout-specific backups the installer already made, and does
+not require Python, Node, or anything from `core/`/`cli/`/`gui/`. For a
+non-default layout, supply its name and variant to `uninstall.sh`.
 
 ## 6. Validation
 
@@ -219,8 +219,6 @@ generating or installing anything.
 
 `layouts/fr_custom.json` ships with the project as a worked example --
 something every tool (CLI, GUI, tests) can load out of the box to
-demonstrate the JSON-to-XKB pipeline and the currently supported Linux
-installation path. The installer is still specifically wired to
-`fr_custom`/`custom`; layouts built from scratch or imported from the
-operating system can be edited and exported, but cannot yet be installed
-through the installer under their own names.
+demonstrate the JSON-to-XKB pipeline and Linux installation path. Other
+validated layouts can also be installed by their own names, though safe
+independent management of multiple installed layouts remains future work.

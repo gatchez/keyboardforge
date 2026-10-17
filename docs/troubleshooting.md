@@ -10,9 +10,9 @@ Only Debian/Ubuntu (`/etc/debian_version`), Fedora (`/etc/fedora-release`),
 and Arch (`/etc/arch-release`) are detected automatically. On anything
 else, follow the manual steps in `linux/steps.txt`.
 
-**"Another instance is running. (Lock: /tmp/fr_custom_installer.lock)"**
+**"Another instance is running. (Lock: /tmp/keyboardforge_xkb_installer.lock)"**
 A previous run didn't exit cleanly. If you're sure nothing is actually
-running: `sudo rm -rf /tmp/fr_custom_installer.lock`, then retry.
+running: `sudo rm -rf /tmp/keyboardforge_xkb_installer.lock`, then retry.
 
 **Layout doesn't appear after installing**
 1. Log out and back in, or reboot (some DEs cache the keyboard layout list

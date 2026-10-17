@@ -110,7 +110,19 @@ else
         source "$SCRIPT_DIR/modules/gnome.sh"
         source "$SCRIPT_DIR/modules/kde.sh"
         source "$SCRIPT_DIR/modules/xfce.sh"
+        source "$SCRIPT_DIR/modules/debian.sh"
         DRY_RUN=0
+        set_layout_context "other_layout" "international"
+        [[ "$LAYOUT_SYMBOLS_FILE" == "$SCRIPT_DIR/other_layout" &&
+           "$LAYOUT_NAME" == "other_layout" &&
+           "$LAYOUT_VARIANT" == "international" &&
+           "$LAYOUT_BACKUP_SUFFIX" == ".bak_other_layout" &&
+           "$INSTALLED_VERSION_FILE" == "$XKB_SYMBOLS_DIR/other_layout.version" &&
+           "$INSTALL_STATE_DIR" == "/var/lib/keyboardforge/other_layout" ]] || exit 1
+        if set_layout_context "../unsafe" "international"; then
+            exit 1
+        fi
+        set_layout_context "fr_custom" "custom" || exit 1
         INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
         INSTALL_TRANSACTION_DIR="$STATE_TEST_DIR/transaction"
         XKB_SYMBOLS_DIR="$STATE_TEST_DIR/system/symbols"
@@ -152,6 +164,62 @@ else
         qdbus() {
             return 0
         }
+
+        kwriteconfig6() {
+            printf '%s\n' "$*" >> "$STATE_TEST_DIR/kde-commands"
+        }
+
+        xfconf-query() {
+            printf '%s\n' "$*" >> "$STATE_TEST_DIR/xfce-commands"
+        }
+
+        setxkbmap() {
+            printf '%s\n' "$*" >> "$STATE_TEST_DIR/xfce-commands"
+        }
+
+        dpkg-reconfigure() { :; }
+        update-initramfs() { :; }
+        safe_exec() {
+            shift
+            "$@" >> "$LOG_FILE" 2>&1
+        }
+
+        set_layout_context "other_layout" "international" || exit 1
+        INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
+        INSTALL_TRANSACTION_DIR="$STATE_TEST_DIR/transaction"
+        DEBIAN_KEYBOARD_FILE="$STATE_TEST_DIR/etc/default/keyboard"
+        mkdir -p "$(dirname "$DEBIAN_KEYBOARD_FILE")"
+        printf 'XKBLAYOUT="us"\nXKBVARIANT="intl"\n' > "$DEBIAN_KEYBOARD_FILE"
+        apply_debian_system_config
+        if ! grep -Fxq 'XKBLAYOUT="other_layout"' "$DEBIAN_KEYBOARD_FILE" ||
+           ! grep -Fxq 'XKBVARIANT="international"' "$DEBIAN_KEYBOARD_FILE" ||
+           [[ ! -f "${DEBIAN_KEYBOARD_FILE}.bak_other_layout" ]]; then
+            exit 1
+        fi
+
+        ACTUAL_USER="$TEST_USER"
+        mkdir -p "$INSTALL_STATE_DIR"
+        printf 'original sources\n' > "${INSTALL_STATE_DIR}/gnome-input-sources"
+        configure_gnome
+        if [[ "$(cat "$STATE_TEST_DIR/gnome-restored-sources")" != \
+            "[('xkb', 'other_layout+international')]" ]]; then
+            exit 1
+        fi
+        configure_kde
+        grep -Fq 'LayoutList other_layout' "$STATE_TEST_DIR/kde-commands" || exit 1
+        grep -Fq 'VariantList international' "$STATE_TEST_DIR/kde-commands" || exit 1
+        DE="xfce"
+        DISPLAY_SERVER="x11"
+        configure_xfce
+        grep -Fq '/Default/XkbLayout -s other_layout' "$STATE_TEST_DIR/xfce-commands" || exit 1
+        grep -Fq '/Default/XkbVariant -s international' "$STATE_TEST_DIR/xfce-commands" || exit 1
+        grep -Fq 'other_layout international' "$STATE_TEST_DIR/xfce-commands" || exit 1
+
+        set_layout_context "fr_custom" "custom" || exit 1
+        INSTALL_STATE_DIR="$STATE_TEST_DIR/installer-state"
+        INSTALL_TRANSACTION_DIR="$STATE_TEST_DIR/transaction"
+        DEBIAN_KEYBOARD_FILE="$STATE_TEST_DIR/etc/default/keyboard"
+        SYSTEM_X11_KEYBOARD_FILE="$STATE_TEST_DIR/etc/X11/xorg.conf.d/00-keyboard.conf"
 
         GNOME_CONFIG_IMPLEMENTATION="$(declare -f configure_gnome)"
         KDE_CONFIG_IMPLEMENTATION="$(declare -f configure_kde)"
@@ -374,6 +442,8 @@ else
         fi
     ); then
         echo "[PASS] Repeated backup calls preserve first-install state"
+        echo "[PASS] Layout and variant context drives dynamic installer paths"
+        echo "[PASS] Distro and desktop settings use selected layout and variant"
         echo "[PASS] Originally absent files retain their absent-state marker"
         echo "[PASS] Saved configuration restores original contents and absence"
         echo "[PASS] GNOME, KDE, and XFCE settings restore to their captured state"

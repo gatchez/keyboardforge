@@ -13,8 +13,9 @@ that JSON file (or use the KeyboardForge CLI/GUI) and regenerate with:
 Do not hand-edit `fr_custom` or `rules` directly -- those edits will be
 lost the next time the layout is regenerated.
 
-This folder contains the complete framework to install the French Custom
-keyboard layout system-wide across supported Linux distributions.
+This folder contains the framework to install a generated XKB layout
+system-wide across supported Linux distributions. Direct installer use
+defaults to the bundled `fr_custom`/`custom` layout.
 
 FILES INCLUDED:
 ----------------
@@ -69,6 +70,13 @@ ADVANCED FLAGS:
 
 Example: sudo ./install.sh --yes
 
+To install a different generated layout, use the selected identifiers:
+    sudo ./install.sh --layout-name my_layout --variant international
+
+The symbols file and `rules` file in this directory must already have been
+generated for that same layout and variant. The CLI performs generation
+and passes these options automatically.
+
 What the script automates:
  1. Checks for an existing target symbols file or rules entry. If one
     exists without the KeyboardForge installed-version marker, installation
@@ -78,11 +86,12 @@ What the script automates:
     pacman's libxml2 + xkeyboard-config, depending on distro).
  3. Backs up system files (`evdev.xml`, `/etc/default/keyboard` on Debian,
     or `/etc/X11/xorg.conf.d/00-keyboard.conf` on Fedora/Arch).
- 4. Copies `fr_custom` to `/usr/share/X11/xkb/symbols/`.
+ 4. Copies the selected layout's generated symbols file to
+    `/usr/share/X11/xkb/symbols/<layout-name>`.
  5. Validates XML structure (using `xmllint`) and injects layout rules.
  6. Configures system defaults:
-      - Debian: `XKBLAYOUT="fr_custom"`, `XKBVARIANT="custom"`
-      - Fedora/Arch: `localectl set-x11-keymap fr_custom pc105 custom`
+      - Debian: sets `XKBLAYOUT` and `XKBVARIANT` to the selected values.
+      - Fedora/Arch: passes the selected layout and variant to `localectl`.
  7. Rebuilds system caches safely where relevant (initramfs / dracut /
     mkinitcpio -P).
  8. Detects Wayland vs X11 and attempts desktop configuration:
@@ -120,6 +129,9 @@ UNINSTALL / RESTORE
 If you need to revert the system to its previous state:
     sudo ./uninstall.sh
     sudo reboot
+
+For a non-default layout, pass the same `--layout-name` and `--variant`
+values that were used during installation.
 
 This safely restores files from their `.bak_fr_custom` backups, restores the
 saved distro keyboard configuration and cleans up the XKB directories.

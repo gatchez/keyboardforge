@@ -19,17 +19,18 @@ Layout Creator (MSKLC).
   shows the actual character each key produces (not XKB's internal
   technical name), or **edit via a scriptable CLI**, or **both** -- they
   share the exact same underlying layout files.
-- **Install the bundled `fr_custom` layout** on Debian/Ubuntu, Fedora, or
+- **Install a generated keyboard layout** on Debian/Ubuntu, Fedora, or
   Arch Linux, with attempted GNOME/KDE Plasma configuration and XFCE
   configuration on X11, plus a tested uninstall path. XFCE on Wayland and
-  other/undetected desktops require manual setup. The installer is still
-  hard-wired to this one layout; installing arbitrary layout names is not
-  supported yet. See the support matrix in `docs/architecture.md`.
+  other/undetected desktops require manual setup. The CLI and installer can
+  also install other valid generated layout names; independent management
+  of multiple layouts is still in progress. See the support matrix in
+  `docs/architecture.md`.
 
 `layouts/fr_custom.json` (a customized French layout) ships as a working
 example so every tool above has something real to load out of the box.
-The core, CLI, and GUI handle it as an ordinary layout; the current Linux
-installer uses it as its one supported install target. See
+The core, CLI, and GUI handle it as an ordinary layout; direct installer
+use defaults to this example's `fr_custom`/`custom` identifiers. See
 `docs/user-guide.md` section 7.
 
 ## Project status (roadmap phases)
@@ -49,10 +50,9 @@ Each phase's zip is **cumulative** — it contains everything from all prior
 phases plus that phase's new work, so any zip can be unpacked and used
 standalone as a snapshot of the project at that point.
 
-Phases 3 and 4 are partial because the Linux installer is still fixed to
-`fr_custom`/`custom`, despite the core and CLI supporting other layouts for
-editing and export. Phase 6 is partial because native Linux package-build
-automation is not wired up.
+Phases 3 and 4 are partial because Linux behavior still needs multi-layout
+rules management and additional integration verification. Phase 6 is partial
+because native Linux package-build automation is not wired up.
 
 Phase 8 (Windows) is intentionally **not implemented**. Windows and macOS
 remain future work while the Linux module is being completed; no work on
@@ -87,8 +87,8 @@ cd cli && python3 -m keyboardforge_cli system-layouts
 # 3. Import one of them (including resolvable `include` chains) for editing
 python3 -m keyboardforge_cli import-system fr ../layouts/my_french.json --variant azerty
 
-# 4. Export edited layouts to XKB files. The current installer installs only
-#    the bundled fr_custom layout; arbitrary layout installation is not yet supported.
+# 4. Export an edited layout to XKB files. Any valid generated layout can be
+#    installed by the CLI; simultaneous multi-layout management is in progress.
 mkdir -p ../xkb-preview
 python3 -m keyboardforge_cli export ../layouts/my_french.json ../xkb-preview/
 ```

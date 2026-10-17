@@ -39,8 +39,8 @@ Module) maps onto this repository as follows:
              ▼                                              ▼
        ┌────────────────────────────────────────────────────────┐
        │              layouts/*.json  (Keyboard Model)             │
-       │   fr_custom is the bundled example and current installer   │
-       │   target; the model itself supports other layout names.     │
+       │   fr_custom is the bundled example; generated layouts can   │
+       │   be installed by name through the CLI and installer.       │
        └──────────────────────────┬───────────────────────────────────┘
                                     │
                           core/keyboardforge_core
@@ -62,17 +62,17 @@ Module) maps onto this repository as follows:
                     (Wayland or X11 aware)
 ```
 
-The diagram abstracts the generated-file handoff. In the current
-implementation, the installer consumes the fixed `fr_custom` symbols
-file and rules entry; it does not install every generated `xkb_name`.
+The diagram abstracts the generated-file handoff. The installer consumes
+the selected generated symbols file and matching rules entry, with
+`fr_custom`/`custom` as direct-script defaults. Managing multiple layouts'
+rules independently is still in progress.
 
 Both the CLI (`cli/`) and GUI (`gui/`) are *thin clients* over
 `core/keyboardforge_core`: they read and write the same JSON layout model,
 with no duplicated layout logic between them. Layouts can be edited and
-exported through either workflow. The Linux installer is a separate,
-currently single-layout component: it expects the bundled `fr_custom`
-symbols file and rules entry. Arbitrary layout names are not yet supported
-by the install/uninstall scripts, even though the core can generate them.
+exported through either workflow. The Linux installer is a separate
+component, but now accepts generated layout names and variants. The bundled
+`fr_custom`/`custom` pair remains the default for direct script use.
 
 ## Why JSON as the source of truth?
 
@@ -96,9 +96,10 @@ generator/parser pair means:
 
 Linux is the current platform under development. The installer supports
 Debian/Ubuntu, Fedora, and Arch, and integrates GNOME, KDE Plasma, and
-XFCE. It currently installs only the bundled `fr_custom` layout; the
-model, CLI, and generator support editing and exporting other layout names,
-but install/uninstall support for those names is not implemented yet.
+XFCE. It installs generated layout names and variants, with
+`fr_custom`/`custom` as the direct-script default. Independent
+multi-layout registration and removal in the shared system rules file
+remain outstanding.
 Windows and macOS are deferred until work on the Linux module is complete.
 
 ### Current Linux installer support matrix
@@ -124,8 +125,8 @@ under the Linux integration checklist.
 ## Coding standards
 
 - **Bash** (`linux/`): `#!/usr/bin/env bash`, `set -E` + `ERR` trap in entry
-  points, all system-mutating calls go through `safe_exec()` (never a bare
-  command) so failures degrade to a warning instead of crashing, all
+  points, external commands go through `safe_exec()` where applicable,
+  required failures propagate to the transaction rollback, all
   destructive operations are gated behind `check_writable()` and
   `backup_file()`, `--dry-run` must never write to disk.
 - **Python** (`core/`, `cli/`): stdlib only for `core/` (no runtime

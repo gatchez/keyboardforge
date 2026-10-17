@@ -33,7 +33,7 @@ apply_arch_system_config() {
             }
         # Arch is systemd-based, so localectl manages the X11 default layout
         # the same way it does on Fedora.
-        safe_exec "Setting localectl x11-keymap" localectl set-x11-keymap fr_custom pc105 custom || return 1
+        safe_exec "Setting localectl x11-keymap" localectl set-x11-keymap "$LAYOUT_NAME" pc105 "$LAYOUT_VARIANT" || return 1
 
         # Rebuilding the initramfs is NOT required for an X11-only XKB layout
         # change. This mirrors the safety step used on Debian/Fedora only in

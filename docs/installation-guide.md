@@ -27,15 +27,15 @@ KeyboardForge lets you create, edit, and export custom keyboard layouts
 for Linux -- for example, remapping which character each key produces,
 changing what Shift or AltGr do on a specific key, or starting from one of
 your operating system's own built-in layouts (its real `us`, `fr`, `de`,
-etc.) and tweaking it. The current installer installs only the bundled
-`fr_custom`/`custom` layout.
+etc.) and tweaking it. The CLI can install any valid generated layout;
+direct installer use defaults to `fr_custom`/`custom`.
 
 The project has four parts. **You do not need all of them** -- pick based
 on how you want to work:
 
 | Part | What it's for | Do you need it? |
 |---|---|---|
-| `linux/` | The installer for the bundled `fr_custom`/`custom` layout | Required only if installing that layout |
+| `linux/` | The Linux installer for generated layouts | Required only if installing a layout |
 | `core/` + `cli/` | A command-line tool (`keyboardforge`) for creating/editing/validating layouts, and importing your OS's real layouts | Optional -- only if you want to script things or don't want to use the graphical editor |
 | `gui/` | A point-and-click visual layout editor that runs in your web browser | Optional -- only if you prefer clicking over typing commands |
 | `docs/`, `packaging/` | Documentation and native-package templates (build automation is not implemented) | Not required to use the software |
@@ -49,9 +49,9 @@ example layout, `layouts/fr_custom.json` (a customized French layout), so
 that every tool in the project has something real to load, edit, and
 install right out of the box. It is **not** the point of the project --
 it exists to demonstrate the implemented pipeline. Your own layouts and
-layouts imported from your operating system can be edited and exported in
-the same way, but the installer does not yet support installing them under
-their own names.
+layouts imported from your operating system can also be installed under
+their generated identifiers. Independent management of multiple installed
+layouts is still in progress.
 
 ---
 
@@ -267,7 +267,7 @@ permission, so this step ensures the scripts can actually be run.
 2. It detects your Linux distribution automatically.
 3. It installs `xmllint` if missing (see section 3.1).
 4. It backs up every system file it's about to touch, with a
-   `.bak_fr_custom` suffix, so everything can be reverted later.
+   layout-specific backup suffix, so everything can be reverted later.
 5. It copies the layout's XKB symbol definitions into
    `/usr/share/X11/xkb/symbols/`.
 6. It registers the layout in `/usr/share/X11/xkb/rules/evdev.xml` (the
@@ -365,16 +365,15 @@ mkdir -p my_layouts/exported
 keyboardforge export my_layouts/my_custom.json my_layouts/exported
 ```
 
-The current installer only installs the bundled `fr_custom`/`custom`
-layout. Creating, importing, validating, and exporting another layout works,
-but it cannot yet be installed through `keyboardforge install`.
-To install the bundled example, use:
+To install a generated layout, run:
 ```bash
-keyboardforge install layouts/fr_custom.json --dry-run
-keyboardforge install layouts/fr_custom.json
+keyboardforge install my_layouts/my_custom.json --dry-run
+keyboardforge install my_layouts/my_custom.json
 ```
 The real install requires root; the CLI invokes `sudo` automatically if
-needed.
+needed. The CLI generates symbols/rules for the layout first. Do not keep
+multiple KeyboardForge layouts installed at once until independent rules
+management is complete.
 
 **Starting from your operating system's own real layout instead of a
 blank one:**
@@ -394,8 +393,8 @@ mkdir -p my_layouts/french-export
 keyboardforge export my_layouts/my_french.json my_layouts/french-export
 ```
 See `docs/user-guide.md` and `docs/cli-manual.md` for the full explanation
-of what "importing a system layout" does and doesn't capture. The current
-installer does not install imported layouts under their original XKB names.
+of what "importing a system layout" does and doesn't capture. An imported
+layout can be installed under its generated XKB name after validation.
 
 ---
 
@@ -419,9 +418,8 @@ No installation needed at all.
 
 The GUI itself cannot install anything on your system (it's a static
 webpage with no access to your files beyond what you explicitly load/
-save). Export the saved JSON with the CLI as described in section 6.3.
-The current installer only installs the bundled `fr_custom`/`custom`
-layout; it does not install arbitrary GUI-created layouts.
+save). Install the saved JSON with `keyboardforge install` as described
+above. Independent multi-layout management is still pending.
 See `docs/gui-manual.md` for the complete feature walkthrough.
 
 ---
@@ -470,7 +468,7 @@ or, equivalently, if you installed via the CLI:
 keyboardforge uninstall
 ```
 
-This restores every file the installer touched from its `.bak_fr_custom`
+This restores every file the installer touched from its layout-specific backups
 backup (or removes it entirely if it didn't exist before you installed
 anything) and resets your system's keyboard configuration to `us`
 (the universal US QWERTY default).

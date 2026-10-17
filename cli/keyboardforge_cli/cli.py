@@ -189,18 +189,6 @@ def cmd_install(args) -> int:
         print("Refusing to install: layout has validation errors.", file=sys.stderr)
         return 1
 
-    if (layout.xkb_name, layout.variant) != ("fr_custom", "custom"):
-        print(
-            "ERROR: the Linux installer currently supports only the "
-            "'fr_custom' layout with the 'custom' variant.",
-            file=sys.stderr,
-        )
-        print(
-            "Other layouts can be exported, but cannot yet be installed.",
-            file=sys.stderr,
-        )
-        return 1
-
     try:
         generate(layout, args.linux_dir)
     except LayoutGenerationError as exc:
@@ -230,6 +218,7 @@ def cmd_uninstall(args) -> int:
         print(f"ERROR: {uninstall_script} not found.", file=sys.stderr)
         return 1
     cmd = ["sudo", uninstall_script] if os.geteuid() != 0 else [uninstall_script]
+    cmd.extend(["--layout-name", args.layout_name, "--variant", args.variant])
     print(f"Running: {' '.join(cmd)} (cwd={args.linux_dir})")
     result = subprocess.run(cmd, cwd=args.linux_dir)
     return result.returncode
@@ -316,11 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "install",
-        help="Generate + install the supported layout on this Linux system (needs root).",
-        description=(
-            "Generate XKB files and run the Linux installer. Currently only "
-            "the fr_custom/custom layout is supported."
-        ),
+        help="Generate and install a custom layout on this Linux system (needs root).",
+        description="Generate XKB files for the selected layout and run the Linux installer.",
     )
     p.add_argument("layout")
     p.add_argument("--linux-dir", default=DEFAULT_LINUX_DIR, help="Path to the linux/ installer directory")
@@ -329,6 +315,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_install)
 
     p = sub.add_parser("uninstall", help="Revert a previously installed layout (needs root).")
+    p.add_argument("--layout-name", default="fr_custom", help="XKB layout identifier (default: fr_custom)")
+    p.add_argument("--variant", default="custom", help="XKB variant name (default: custom)")
     p.add_argument("--linux-dir", default=DEFAULT_LINUX_DIR, help="Path to the linux/ installer directory")
     p.set_defaults(func=cmd_uninstall)
 

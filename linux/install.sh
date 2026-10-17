@@ -9,7 +9,7 @@ fi
 
 cd "$(dirname "$0")" || exit 1
 
-for req_file in "modules/common.sh" "fr_custom" "rules" "VERSION"; do
+for req_file in "modules/common.sh" "VERSION"; do
     if [[ ! -f "$req_file" ]]; then
         echo "ERROR: Missing required file: $req_file. Are you in the correct directory?"
         exit 1
@@ -79,17 +79,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ "$LAYOUT_NAME" != "fr_custom" || "$LAYOUT_VARIANT" != "custom" ]]; then
-    echo "ERROR: This installer currently supports only fr_custom/custom." >&2
-    exit 1
-fi
+set_layout_context "$LAYOUT_NAME" "$LAYOUT_VARIANT" || exit 1
+for req_file in "$LAYOUT_SYMBOLS_FILE" "$RULES_FILE"; do
+    if [[ ! -f "$req_file" ]]; then
+        log_error "Missing generated layout file: $req_file."
+        exit 1
+    fi
+done
 
 # Initialize a fresh log with a session header
 if [[ "$DRY_RUN" == "0" ]]; then
     mkdir -p "$LOG_DIR" || exit 1
     echo "--- SESSION START: $(date) ---" > "$LOG_FILE" || exit 1
 fi
-echo -e "============================================================\n FR_CUSTOM Installer v$VERSION\n============================================================"
+echo -e "============================================================\n KeyboardForge Installer v$VERSION\n============================================================"
 
 if [[ $EUID -ne 0 ]]; then
     log_error "This script requires root privileges. Run: sudo ./install.sh"
@@ -168,9 +171,9 @@ if [[ "$DRY_RUN" == "0" ]]; then
 fi
 
 # --- CORE FILES INSTALLATION ---
-backup_file "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
-safe_exec "Copying layout file" cp "fr_custom" "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
-safe_exec "Setting permissions on layout" chmod 644 "${XKB_SYMBOLS_DIR}/fr_custom" || exit 1
+backup_file "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" || exit 1
+safe_exec "Copying layout file" cp "$LAYOUT_SYMBOLS_FILE" "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" || exit 1
+safe_exec "Setting permissions on layout" chmod 644 "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" || exit 1
 if [[ "$DRY_RUN" == "0" ]]; then
     printf '%s\n' "$VERSION" > "$INSTALLED_VERSION_FILE" || exit 1
 fi

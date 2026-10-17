@@ -15,8 +15,8 @@ configure_kde() {
         return 1
     fi
 
-    safe_exec "Setting KDE layout" su - "$ACTUAL_USER" -c "$export_dbus $config_tool --file kxkbrc --group Layout --key LayoutList fr_custom" || return 1
-    safe_exec "Setting KDE variant" su - "$ACTUAL_USER" -c "$export_dbus $config_tool --file kxkbrc --group Layout --key VariantList custom" || return 1
+    safe_exec "Setting KDE layout" su - "$ACTUAL_USER" -c "$export_dbus $config_tool --file kxkbrc --group Layout --key LayoutList $LAYOUT_NAME" || return 1
+    safe_exec "Setting KDE variant" su - "$ACTUAL_USER" -c "$export_dbus $config_tool --file kxkbrc --group Layout --key VariantList $LAYOUT_VARIANT" || return 1
 
     log_info "Attempting to refresh KDE keyboard daemon..."
     if command -v qdbus >/dev/null 2>&1 &&

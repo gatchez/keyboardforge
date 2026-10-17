@@ -5,14 +5,16 @@
 ### Documentation and status clarification
 - Clarified that Linux is the active implementation scope; Windows and
   macOS work is deferred until the Linux module is complete.
-- Corrected installation guidance: the core, CLI, and GUI can edit/export
-  arbitrary layouts, but the Linux installer currently supports only the
-  bundled `fr_custom`/`custom` layout.
+- Updated installation guidance for generated layout names and variants;
+  independent multi-layout rules management remains outstanding.
 - Marked native package build automation as outstanding; the existing
   Debian, RPM, and Arch files are templates rather than ready-to-build
   package definitions.
 
 ### Added
+- Generalized the Linux install/uninstall interface to consume a selected
+  generated symbols filename, layout name, and variant while retaining the
+  direct-script `fr_custom`/`custom` defaults.
 - Renamed the project from "FR_CUSTOM Layout Installer Framework" to
   **KeyboardForge**, restructured as a multi-component project:
   `core/`, `linux/`, `cli/`, `gui/`, `packaging/`, `docs/`.

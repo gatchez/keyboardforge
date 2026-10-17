@@ -8,6 +8,5 @@ configure_gnome() {
         return 1
     fi
     local export_dbus="export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u "$ACTUAL_USER")/bus;"
-    # GNOME represents layout+variant as a single ('xkb','fr_custom+custom') source
-    safe_exec "Setting GNOME layout via gsettings" su - "$ACTUAL_USER" -c "$export_dbus gsettings set org.gnome.desktop.input-sources sources \"[('xkb', 'fr_custom+custom')]\""
+    safe_exec "Setting GNOME layout via gsettings" su - "$ACTUAL_USER" -c "$export_dbus gsettings set org.gnome.desktop.input-sources sources \"[('xkb', '${LAYOUT_NAME}+${LAYOUT_VARIANT}')]\""
 }

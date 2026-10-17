@@ -5,6 +5,31 @@ cd "$(dirname "$0")" || exit 1
 source modules/common.sh
 
 DRY_RUN=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --layout-name)
+            [[ $# -ge 2 && -n "$2" ]] || {
+                echo "ERROR: --layout-name requires a value." >&2
+                exit 1
+            }
+            LAYOUT_NAME="$2"
+            shift 2
+            ;;
+        --variant)
+            [[ $# -ge 2 && -n "$2" ]] || {
+                echo "ERROR: --variant requires a value." >&2
+                exit 1
+            }
+            LAYOUT_VARIANT="$2"
+            shift 2
+            ;;
+        *)
+            echo "ERROR: Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+set_layout_context "$LAYOUT_NAME" "$LAYOUT_VARIANT" || exit 1
 
 set -E
 trap 'log_error "Unexpected failure at line $LINENO in command: $BASH_COMMAND"' ERR
@@ -30,24 +55,24 @@ elif [[ -d "$INSTALL_STATE_DIR" ]]; then
 fi
 
 # 1. Restore evdev.xml
-if [[ -f "${EVDEV_XML}.bak_fr_custom" ]]; then
-    mv "${EVDEV_XML}.bak_fr_custom" "$EVDEV_XML"
+if [[ -f "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" ]]; then
+    mv "${EVDEV_XML}${LAYOUT_BACKUP_SUFFIX}" "$EVDEV_XML"
     log_success "Restored $EVDEV_XML from backup."
 else
-    log_warn "No backup found for evdev.xml. You may need to manually remove the fr_custom <layout> entry."
+    log_warn "No backup found for evdev.xml. You may need to manually remove the ${LAYOUT_NAME} <layout> entry."
 fi
 
 # 2. Remove symbols file
-if [[ -f "${XKB_SYMBOLS_DIR}/fr_custom" ]]; then
-    rm -f "${XKB_SYMBOLS_DIR}/fr_custom"
-    rm -f "${XKB_SYMBOLS_DIR}/fr_custom.bak_fr_custom"
+if [[ -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}" ]]; then
+    rm -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}"
+    rm -f "${XKB_SYMBOLS_DIR}/${LAYOUT_NAME}${LAYOUT_BACKUP_SUFFIX}"
     log_success "Removed layout file from ${XKB_SYMBOLS_DIR}"
 fi
 rm -f "$INSTALLED_VERSION_FILE"
 
 # 3. Restore OS-level configs
 if [[ -f /etc/debian_version ]]; then
-    restore_state_file "${DEBIAN_KEYBOARD_FILE}.bak_fr_custom" \
+    restore_state_file "${DEBIAN_KEYBOARD_FILE}${LAYOUT_BACKUP_SUFFIX}" \
         "$DEBIAN_KEYBOARD_FILE" \
         || log_warn "Could not restore /etc/default/keyboard; review it manually."
     if command -v dpkg-reconfigure >/dev/null 2>&1; then

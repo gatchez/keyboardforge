@@ -25,7 +25,7 @@ apply_fedora_system_config() {
         # Only the X11 keymap is set here. The console (TTY) keymap uses a
         # different .map format and does not accept custom X11 layout names,
         # so it is intentionally left untouched.
-        safe_exec "Setting localectl x11-keymap" localectl set-x11-keymap fr_custom pc105 custom || return 1
+        safe_exec "Setting localectl x11-keymap" localectl set-x11-keymap "$LAYOUT_NAME" pc105 "$LAYOUT_VARIANT" || return 1
         if command -v dracut >/dev/null 2>&1; then
             safe_exec "Rebuilding initramfs with dracut" dracut -f || return 1
         fi

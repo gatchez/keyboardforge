@@ -43,7 +43,7 @@ current Linux scope unless the project maintainers explicitly broaden it.
   sure they were regenerated via `tools/generate_layout.py` from
   `layouts/*.json`, not hand-edited -- `linux/steps.txt` says the same.
 
-The Linux installer currently supports only the bundled
-`fr_custom`/`custom` layout, even though the core, CLI, and GUI support
-other layout definitions. Do not describe arbitrary-layout installation as
-available until the Linux installer has been generalized and tested.
+The Linux installer accepts generated layout names and variants. Direct
+invocation defaults to the bundled `fr_custom`/`custom` pair. Independent
+management of multiple generated layouts in the shared system rules file
+is still pending; avoid documenting simultaneous installs as supported.
